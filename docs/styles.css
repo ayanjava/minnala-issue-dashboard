@@ -892,7 +892,107 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   text-align: center;
   font-size: 12px;
   color: var(--color-text-dim);
+  white-space: pre-wrap;
 }
+
+/* Tall chart cards — for horizontal bar charts that need ~32px per
+ * data row. The JS calls sizeChartWrap() to set the precise height
+ * based on the actual module count, but this rule keeps the empty
+ * state respectable. */
+.chart-card.chart-tall .chart-wrap { min-height: 280px; }
+
+/* Sonar ratings + KPI grid */
+.sonar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+@media (max-width: 900px) {
+  .sonar-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 500px) {
+  .sonar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.sonar-rating-chip {
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  text-align: center;
+}
+.sr-axis {
+  font-size: 10px; text-transform: uppercase;
+  color: var(--color-text-dim);
+  letter-spacing: 0.5px; font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+.sr-grade {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+/* A-E colour scale (Sonar convention: A=best, E=worst). */
+.sonar-rating-chip.rating-a .sr-grade { color: var(--color-accent); }
+.sonar-rating-chip.rating-b .sr-grade { color: oklch(0.78 0.16 110); }
+.sonar-rating-chip.rating-c .sr-grade { color: var(--color-alert); }
+.sonar-rating-chip.rating-d .sr-grade { color: oklch(0.72 0.20 45); }
+.sonar-rating-chip.rating-e .sr-grade { color: var(--color-loss); }
+.sonar-rating-chip.rating-\? .sr-grade { color: var(--color-text-dim); }
+
+.sonar-kpi {
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+.sonar-kpi .k-label {
+  font-size: 10px; text-transform: uppercase;
+  color: var(--color-text-dim);
+  letter-spacing: 0.5px; font-weight: 600;
+}
+.sonar-kpi .k-val {
+  font-size: 16px; font-weight: 700;
+  font-family: var(--font-mono);
+  margin-top: var(--space-1);
+}
+
+/* Build checks table */
+.reports-build-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.reports-build-table th, .reports-build-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-faint);
+  text-align: left;
+}
+.reports-build-table th {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--color-bg-sunken);
+}
+.reports-build-table th.num, .reports-build-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.reports-build-table .check-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text);
+  padding: 1px 4px;
+  background: var(--color-bg-sunken);
+  border-radius: var(--radius-sm);
+}
+.build-row.build-passed   .build-status { color: var(--color-accent); }
+.build-row.build-failed   .build-status { color: var(--color-loss); }
+.build-row.build-skipped  .build-status { color: var(--color-text-mid); }
+.build-row.build-unknown  .build-status { color: var(--color-text-dim); }
+.build-row.build-pending  .build-status { color: var(--color-alert); }
 
 .reports-sources { list-style: none; margin: 0; padding: 0; }
 .report-source-row {

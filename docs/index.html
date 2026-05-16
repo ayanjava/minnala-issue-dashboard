@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-17d">
+<link rel="stylesheet" href="styles.css?v=2026-05-17e">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -438,9 +438,17 @@
       </section>
 
       <section class="charts">
-        <div class="card chart-card">
-          <div class="card-head">Module progress <span class="muted">(closed / total)</span></div>
+        <div class="card chart-card chart-tall">
+          <div class="card-head">Module progress <span class="muted">(% closed, sorted)</span></div>
           <div class="chart-wrap"><canvas id="rptModuleProgress"></canvas></div>
+        </div>
+        <div class="card chart-card chart-tall">
+          <div class="card-head">5-proof state by module <span class="muted">(proved / partial / needs proof)</span></div>
+          <div class="chart-wrap"><canvas id="rptProofByModule"></canvas></div>
+        </div>
+        <div class="card chart-card chart-tall">
+          <div class="card-head">Open priority by module <span class="muted">(P0 / P1 / P2)</span></div>
+          <div class="chart-wrap"><canvas id="rptPriorityByModule"></canvas></div>
         </div>
         <div class="card chart-card">
           <div class="card-head">Coverage by package <span class="muted">(top 10 by LOC)</span></div>
@@ -454,6 +462,54 @@
           <div class="card-head">🛡️ SonarQube findings <span class="muted">(latest scan)</span></div>
           <div class="chart-wrap"><canvas id="rptSonarFindings"></canvas></div>
         </div>
+      </section>
+
+      <!-- Sonar ratings card — colour-coded A-E badges for each axis -->
+      <section class="card">
+        <div class="card-head">
+          <span>🛡️ SonarQube ratings + KPIs</span>
+          <span class="muted" id="rptSonarSubhead"></span>
+        </div>
+        <div class="sonar-ratings" id="rptSonarRatings">
+          <div class="muted" style="padding: var(--space-4)">Loading…</div>
+        </div>
+      </section>
+
+      <!-- Build checks status — finally surfaces build-status.json -->
+      <section class="card">
+        <div class="card-head">
+          <span>🏗️ Build checks</span>
+          <span class="muted" id="rptBuildSubhead"></span>
+        </div>
+        <table id="rptBuildTable" class="reports-build-table">
+          <thead><tr>
+            <th>Check</th>
+            <th class="num">Status</th>
+            <th class="num">Duration</th>
+            <th>Link</th>
+          </tr></thead>
+          <tbody id="rptBuildTbody">
+            <tr><td colspan="4" class="muted" style="padding:var(--space-3)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Top modules needing proof — sorted quick-triage list -->
+      <section class="card">
+        <div class="card-head">
+          <span>🎯 Top modules still needing proof</span>
+          <span class="muted">click a row to filter the Dashboard by that module</span>
+        </div>
+        <table id="rptTopNeedsTable" class="reports-module-table">
+          <thead><tr>
+            <th>Module</th>
+            <th class="num">Open</th>
+            <th class="num">Closed</th>
+            <th class="num">Needs proof</th>
+            <th class="num">Coverage</th>
+          </tr></thead>
+          <tbody id="rptTopNeedsTbody"></tbody>
+        </table>
       </section>
 
       <section class="card">
@@ -578,6 +634,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-17d"></script>
+<script src="app.js?v=2026-05-17e"></script>
 </body>
 </html>

@@ -1781,6 +1781,9 @@ async function renderReportsView () {
   }
   renderReportsKPIs(STATE.reports);
   renderReportsCharts(STATE.reports);
+  renderReportsSonarRatings(STATE.reports);
+  renderReportsBuildChecks(STATE.reports);
+  renderReportsTopNeeds(STATE.reports);
   renderReportsSources(STATE.reports);
   renderReportsFailing(STATE.reports);
   renderReportsModuleTable(STATE.reports);
@@ -1836,6 +1839,9 @@ function renderReportsCharts ({ reports }) {
     const openPct   = mods.map(([, m]) => +(100 - (m.done_pct ?? 0)).toFixed(1));
     const totals    = mods.map(([, m]) => (m.open || 0) + (m.closed || 0));
     chartDestroy('rptModuleProgress');
+    // Give every module ~32px so the y-axis labels never overlap (the
+    // default 220px wrap squashed 16 modules into 13px each).
+    sizeChartWrap('rptModuleProgress', mods.length, 32);
     CHARTS.rptModuleProgress = new Chart(
       document.getElementById('rptModuleProgress'),
       {
@@ -1875,6 +1881,75 @@ function renderReportsCharts ({ reports }) {
           },
         },
       });
+  }
+
+  // 5-proof state by module — stacked bar showing proved / partial /
+  // needs_proof. Same module ordering as the Module progress chart
+  // so eyeballs can correlate the two.
+  if (prog?.by_module) {
+    const mods = Object.entries(prog.by_module)
+      .filter(([id, m]) => id !== 'uncategorized' && (m.open + m.closed) > 0)
+      .sort((a, b) => (b[1].needs_proof || 0) - (a[1].needs_proof || 0));
+    chartDestroy('rptProofByModule');
+    sizeChartWrap('rptProofByModule', mods.length, 32);
+    CHARTS.rptProofByModule = new Chart(
+      document.getElementById('rptProofByModule'),
+      {
+        type: 'bar',
+        data: {
+          labels: mods.map(([, m]) => m.label || ''),
+          datasets: [
+            { label: 'Proved',      data: mods.map(([, m]) => m.proved      || 0), backgroundColor: COLOR.accent },
+            { label: 'Partial',     data: mods.map(([, m]) => m.partial     || 0), backgroundColor: COLOR.alert  },
+            { label: 'Needs proof', data: mods.map(([, m]) => m.needs_proof || 0), backgroundColor: COLOR.loss   },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          scales: {
+            x: { stacked: true, ticks: { color: COLOR.text }, grid: { color: COLOR.grid } },
+            y: { stacked: true, ticks: { color: COLOR.text, autoSkip: false, font: { size: 11 } }, grid: { display: false } },
+          },
+          plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+        },
+      });
+  }
+
+  // Priority breakdown by module — open P0/P1/P2 counts. Sorted by
+  // P0 desc so the highest-severity backlog sits at top.
+  if (prog?.by_module) {
+    const mods = Object.entries(prog.by_module)
+      .filter(([id, m]) => id !== 'uncategorized'
+                            && ((m.p0_open || 0) + (m.p1_open || 0) + (m.p2_open || 0)) > 0)
+      .sort((a, b) => ((b[1].p0_open||0)*100 + (b[1].p1_open||0)*10 + (b[1].p2_open||0))
+                     - ((a[1].p0_open||0)*100 + (a[1].p1_open||0)*10 + (a[1].p2_open||0)));
+    chartDestroy('rptPriorityByModule');
+    if (mods.length) {
+      sizeChartWrap('rptPriorityByModule', mods.length, 32);
+      CHARTS.rptPriorityByModule = new Chart(
+        document.getElementById('rptPriorityByModule'),
+        {
+          type: 'bar',
+          data: {
+            labels: mods.map(([, m]) => m.label || ''),
+            datasets: [
+              { label: 'P0', data: mods.map(([, m]) => m.p0_open || 0), backgroundColor: COLOR.loss  },
+              { label: 'P1', data: mods.map(([, m]) => m.p1_open || 0), backgroundColor: COLOR.alert },
+              { label: 'P2', data: mods.map(([, m]) => m.p2_open || 0), backgroundColor: COLOR.blue  },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            scales: {
+              x: { stacked: true, ticks: { color: COLOR.text, precision: 0 }, grid: { color: COLOR.grid } },
+              y: { stacked: true, ticks: { color: COLOR.text, autoSkip: false, font: { size: 11 } }, grid: { display: false } },
+            },
+            plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+          },
+        });
+    } else {
+      chartEmpty('rptPriorityByModule', 'No open priority-tagged work — all P0/P1/P2 are closed.');
+    }
   }
 
   // Coverage by package (top 10 by LOC)
@@ -1972,12 +2047,128 @@ function renderReportsCharts ({ reports }) {
   }
 }
 
+function renderReportsSonarRatings ({ reports }) {
+  const root = document.getElementById('rptSonarRatings');
+  const sub  = document.getElementById('rptSonarSubhead');
+  if (!root) return;
+  const sonar = reports.sonar?.data;
+  if (!sonar || sonar.source === 'manual-seed' || !sonar.ratings) {
+    root.innerHTML = '<div class="chart-empty muted">No sonar-summary.json data yet. Run `sonar-scanner` locally and dump the API response to reports/sonar-summary.json.</div>';
+    sub.textContent = '';
+    return;
+  }
+  const ratings = sonar.ratings || {};
+  const m = sonar.metrics || {};
+  const chip = (axis, val) => {
+    const v = (val || '?').toString().toUpperCase();
+    return `<div class="sonar-rating-chip rating-${v.toLowerCase()}">
+      <div class="sr-axis">${escapeHTML(axis)}</div>
+      <div class="sr-grade">${escapeHTML(v)}</div>
+    </div>`;
+  };
+  const kpi = (label, val, suffix = '') =>
+    `<div class="sonar-kpi"><div class="k-label">${label}</div><div class="k-val">${val == null ? '—' : escapeHTML(String(val)) + suffix}</div></div>`;
+  root.innerHTML = `
+    <div class="sonar-grid">
+      ${chip('Reliability',     ratings.reliability)}
+      ${chip('Security',        ratings.security)}
+      ${chip('Maintainability', ratings.maintainability)}
+      ${kpi('Coverage',     m.coverage_pct,       '%')}
+      ${kpi('Duplications', m.duplications_pct,   '%')}
+      ${kpi('Tech debt',    m.tech_debt_min != null ? Math.round(m.tech_debt_min / 60) : null, ' h')}
+      ${kpi('Lines of code', m.lines_of_code)}
+    </div>
+  `;
+  sub.textContent = sonar.web_url ? '' : '(quality_gate = ' + (sonar.quality_gate || '?') + ')';
+}
+
+function renderReportsBuildChecks ({ reports }) {
+  const tbody = document.getElementById('rptBuildTbody');
+  const sub = document.getElementById('rptBuildSubhead');
+  if (!tbody) return;
+  const data = reports.buildStatus?.data;
+  if (!data?.checks) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted" style="padding:var(--space-3)">No build-status.json data.</td></tr>';
+    sub.textContent = '';
+    return;
+  }
+  const rows = Object.entries(data.checks).map(([name, c]) => {
+    const status = (c.status || 'unknown').toLowerCase();
+    const icon = ({
+      passed:  '✅', success: '✅', ok: '✅',
+      failed:  '❌', failure: '❌', error: '❌',
+      skipped: '⏭️',
+      unknown: '❓', pending: '⏳', running: '⏳',
+    })[status] || '❓';
+    const link = c.url
+      ? `<a href="${escapeHTML(c.url)}" target="_blank" rel="noopener">log ↗</a>`
+      : '<span class="muted">—</span>';
+    const dur = c.duration_sec != null ? `${c.duration_sec}s` : '—';
+    return `<tr class="build-row build-${status}">
+      <td><code class="check-name">${escapeHTML(name)}</code></td>
+      <td class="num"><span class="build-status">${icon} ${escapeHTML(status)}</span></td>
+      <td class="num">${dur}</td>
+      <td>${link}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows;
+  const counts = Object.values(data.checks).reduce((acc, c) => {
+    const s = (c.status || 'unknown').toLowerCase();
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+  sub.textContent = Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(' · ')
+    + ` · commit ${(data.commit || '').slice(0, 7)}`;
+}
+
+function renderReportsTopNeeds ({ reports }) {
+  const tbody = document.getElementById('rptTopNeedsTbody');
+  if (!tbody) return;
+  const prog = reports.progress?.data?.by_module || {};
+  const cov  = reports.coverage?.data?.by_package || {};
+  const rows = Object.entries(prog)
+    .filter(([id, m]) => id !== 'uncategorized' && (m.needs_proof || 0) > 0)
+    .sort((a, b) => (b[1].needs_proof || 0) - (a[1].needs_proof || 0))
+    .slice(0, 10)
+    .map(([id, m]) => {
+      const c = Object.entries(cov).find(([k]) => k.includes(id)) || [null, {}];
+      const covPct = c[1].pct != null ? c[1].pct + '%' : '—';
+      return `<tr data-mod="${id}">
+        <td><span class="t-mod" style="color:${moduleColor(id)}">${escapeHTML(m.label || id)}</span></td>
+        <td class="num">${m.open ?? '—'}</td>
+        <td class="num">${m.closed ?? '—'}</td>
+        <td class="num"><span class="trust missing">${m.needs_proof}</span></td>
+        <td class="num">${covPct}</td>
+      </tr>`;
+    }).join('');
+  tbody.innerHTML = rows ||
+    '<tr><td colspan="5" class="muted" style="padding:var(--space-3)">Every module is fully proved 🎉</td></tr>';
+  tbody.querySelectorAll('tr[data-mod]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      FILTERS.module = tr.dataset.mod;
+      FILTERS.submodule = null;
+      FILTERS.proof = 'needs';
+      navigate('dashboard');
+    });
+  });
+}
+
 function chartEmpty (canvasId, msg) {
   chartDestroy(canvasId);
   const c = document.getElementById(canvasId);
   if (!c) return;
   const wrap = c.parentElement;
   wrap.innerHTML = `<div class="chart-empty muted">${escapeHTML(msg)}</div>`;
+}
+
+// Resize a chart's wrap so labels don't crowd. min keeps the panel
+// from collapsing on tiny datasets; perItem (px) is the per-row
+// vertical budget for horizontal bar charts.
+function sizeChartWrap (canvasId, count, perItem = 32, min = 220) {
+  const c = document.getElementById(canvasId);
+  if (!c) return;
+  const wrap = c.parentElement;
+  wrap.style.height = Math.max(min, count * perItem + 60) + 'px';
 }
 
 function renderReportsSources ({ reports, errors }) {
