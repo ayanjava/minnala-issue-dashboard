@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-17a">
+<link rel="stylesheet" href="styles.css?v=2026-05-17b">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -169,6 +169,16 @@
         <div class="kpi" title="Merged in last 7 days"><div class="k-label icon-only">🔀</div>           <div class="k-val" id="kpiMerged7d">—</div></div>
       </section>
 
+      <!-- Five-proof tiles. Every issue must declare a state for each
+           of DB / SRC / TEST / LOGS / UI (proved-* OR proof-na-*).
+           Anything else carries `needs-proof` and lands in the red tile. -->
+      <section class="kpis kpis-proof">
+        <div class="kpi clickable kpi-proof-ok" data-proof="proved" title="Fully proved — every dimension supplied or N/A"><div class="k-label">🛡️ Proved</div> <div class="k-val" id="kpiProved">—</div></div>
+        <div class="kpi clickable kpi-proof-partial" data-proof="partial" title="At least one dimension supplied, but not all five"><div class="k-label">◐ Partial</div> <div class="k-val" id="kpiPartial">—</div></div>
+        <div class="kpi clickable kpi-proof-missing" data-proof="needs" title="Needs proof — one or more dimensions still missing. Click to filter."><div class="k-label">❌ Needs proof</div> <div class="k-val" id="kpiNeedsProof">—</div></div>
+        <div class="kpi" title="Average proof coverage across all issues (supplied + N/A out of 5)"><div class="k-label">📊 Coverage</div> <div class="k-val" id="kpiProofCoverage">—</div></div>
+      </section>
+
       <!-- Type breakdown tiles. Each is a click-to-filter chip — click
            a tile and the whole dashboard narrows to that type.
            Click again to clear. -->
@@ -231,6 +241,7 @@
                 <th data-sort="author">Author</th>
                 <th data-sort="age_days" class="num">Age</th>
                 <th data-sort="comments" class="num">💬</th>
+                <th data-sort="proof_supplied" title="5-proof: 🟢 supplied  ⊘ N/A  🔴 missing  (DB SRC TEST LOGS UI)">Proof</th>
                 <th data-sort="state">State</th>
               </tr>
             </thead>
@@ -462,6 +473,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-17a"></script>
+<script src="app.js?v=2026-05-17b"></script>
 </body>
 </html>

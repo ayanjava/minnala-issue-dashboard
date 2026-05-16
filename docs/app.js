@@ -44,6 +44,9 @@ const FILTERS = {
   search:    '',
   assignedToMe: false,
   surface:   'all',
+  // 5-proof filter: null=off, 'proved'=fully proved, 'partial'=some
+  // proofs supplied but not all, 'needs'=at least one dim missing.
+  proof:     null,
 };
 
 // Hash router: #/dashboard #/board #/sprints #/new #/activity #/commits
@@ -261,18 +264,58 @@ function priorityOf (labelNames, priorityLabels) {
 // Surface classification — UI / Backend / Full-stack / Unclassified.
 // Derived from labels only (frontend ones get UI; backend/server/api get
 // Backend; if both signals present → Full-stack). Used by the Kanban
-// surface filter and the new "UI vs Backend" donut.
+// surface filter and the "UI vs Backend" donut. After the 2026-05-17
+// granular label rollout this also recognises the new prefixes so an
+// issue labelled only `ui-v2-dashboard` + `backend-router-trading` is
+// classified as full-stack instead of falling through to unclassified.
 function surfaceOf (labelNames) {
-  const set = new Set(labelNames.map(n => n.toLowerCase()));
-  const ui = set.has('ui') || set.has('frontend') || set.has('v1-cutover');
+  const lc = labelNames.map(n => n.toLowerCase());
+  const set = new Set(lc);
+  const hasAnyPrefix = (prefixes) =>
+    lc.some(n => prefixes.some(p => n.startsWith(p)));
+  const ui = set.has('ui') || set.has('frontend') || set.has('v1-cutover')
+          || hasAnyPrefix(['ui-v2-']);
   const be = set.has('backend') || set.has('server') || set.has('api')
           || set.has('signal-engine') || set.has('broker') || set.has('streaming')
           || set.has('storage') || set.has('schema-drift') || set.has('auth')
-          || set.has('multi-user') || set.has('infra');
+          || set.has('multi-user') || set.has('infra') || set.has('webhook')
+          || hasAnyPrefix([
+              'backend-', 'broker-', 'data-', 'aws-', 'db-', 'infra-',
+              'webhook-', 'notify-', 'ml-', 'dl-', 'ts-', 'llm-', 'pay-',
+            ]);
   if (set.has('fullstack') || (ui && be)) return 'fullstack';
   if (ui) return 'ui';
   if (be) return 'backend';
   return 'unclassified';
+}
+
+/* ── Five-proof contract ─────────────────────────────────────────
+   For each dimension D ∈ {db, src, test, logs, ui}, an issue must
+   declare one of:
+     • proved-D       — proof supplied
+     • proof-na-D     — N/A (dimension doesn't apply to this issue)
+     • neither        — missing → contributes to `needs-proof`
+   See .github/issue-workflow.json `five_proof_required` for the
+   canonical contract. */
+const PROOF_DIMS = ['db', 'src', 'test', 'logs', 'ui'];
+
+function proofStatus (labelNames) {
+  const set = new Set(labelNames.map(n => n.toLowerCase()));
+  const dims = {};
+  let supplied = 0, na = 0, missing = 0;
+  for (const d of PROOF_DIMS) {
+    if (set.has(`proved-${d}`)) { dims[d] = 'supplied'; supplied++; }
+    else if (set.has(`proof-na-${d}`)) { dims[d] = 'na'; na++; }
+    else { dims[d] = 'missing'; missing++; }
+  }
+  return {
+    dims,
+    supplied,
+    na,
+    missing,
+    covered: supplied + na,
+    fully_proved: missing === 0,
+  };
 }
 
 // Type classification — Bug / Feature / Chore / Docs. Used for the
@@ -354,6 +397,7 @@ function slimRecord (item, taxonomy) {
     })),
     surface: surfaceOf(labels),
     kind_type: typeOf(labels),
+    proof: proofStatus(labels),
     stage: null,        // computed below; needs the slim record itself
     body: item.body || '',
     milestone: item.milestone ? { number: item.milestone.number,
@@ -465,7 +509,7 @@ async function loadData () {
   try {
     if (!STATE.taxonomy) {
       // Cache-bust so taxonomy edits land without forcing users to hard-refresh.
-      const taxResp = await fetch('taxonomy.json?v=2026-05-17a');
+      const taxResp = await fetch('taxonomy.json?v=2026-05-17b');
       STATE.taxonomy = await taxResp.json();
     }
     const token = getPAT();
@@ -673,6 +717,12 @@ function applyFilters (issues, opts = {}) {
       const me = STATE.currentUser.login;
       if (!(i.assignees || []).some(a => a.login === me)) return false;
     }
+    if (FILTERS.proof) {
+      const p = i.proof;
+      if (FILTERS.proof === 'proved'  && !p.fully_proved) return false;
+      if (FILTERS.proof === 'needs'   && p.missing === 0) return false;
+      if (FILTERS.proof === 'partial' && !(p.missing > 0 && p.covered > 0)) return false;
+    }
     return true;
   });
 }
@@ -688,6 +738,7 @@ function renderFilterBanner () {
   if (FILTERS.priority !== 'all') chips.push(FILTERS.priority.toUpperCase());
   if (FILTERS.status !== 'open')  chips.push(FILTERS.status);
   if (FILTERS.age !== 'all')      chips.push('age:' + FILTERS.age);
+  if (FILTERS.proof)              chips.push('proof:' + FILTERS.proof);
   if (FILTERS.search)             chips.push(`search:"${FILTERS.search}"`);
   if (chips.length === 0) { banner.classList.add('hidden'); return; }
   banner.classList.remove('hidden');
@@ -944,6 +995,48 @@ function sortIssues (issues) {
   });
 }
 
+/* ── Proof rendering ──────────────────────────────────────────────
+   - renderProofDots(p): 5 small dots per row (green=supplied / gray=N/A
+     / red=missing), with a tooltip enumerating each dimension.
+   - renderProofKPIs(scope): drives the four tiles in `.kpis-proof`.
+     `scope` is the same activity-scope (skipStatus filter) used by the
+     7-day tiles, so the proof view is not erased by Status=Open. */
+function renderProofDots (p) {
+  if (!p) return '';
+  const labels = ['DB', 'SRC', 'TEST', 'LOGS', 'UI'];
+  const dots = PROOF_DIMS.map((d, idx) => {
+    const state = p.dims[d];
+    const sym = state === 'supplied' ? '●' : state === 'na' ? '◐' : '○';
+    return `<span class="proof-dot proof-${state}" title="${labels[idx]}: ${state}">${sym}</span>`;
+  }).join('');
+  const title = `${p.supplied} supplied · ${p.na} N/A · ${p.missing} missing`;
+  return `<span class="proof-dots" title="${title}">${dots}</span>`;
+}
+
+function renderProofKPIs (scope) {
+  if (!scope || !scope.length) return;
+  let proved = 0, partial = 0, needs = 0, totalCovered = 0;
+  for (const i of scope) {
+    if (i.proof.fully_proved) proved++;
+    else if (i.proof.supplied > 0 || i.proof.na > 0) partial++;
+    else needs += 0;             // tally below
+    if (i.proof.missing > 0) needs++;
+    totalCovered += i.proof.covered;
+  }
+  const coveragePct = scope.length
+    ? Math.round((totalCovered / (scope.length * 5)) * 100)
+    : 0;
+  document.getElementById('kpiProved').textContent       = proved;
+  document.getElementById('kpiPartial').textContent      = partial;
+  document.getElementById('kpiNeedsProof').textContent   = needs;
+  document.getElementById('kpiProofCoverage').textContent = coveragePct + '%';
+  // Highlight Needs-proof tile when the filter is active.
+  document.querySelectorAll('.kpis-proof .kpi').forEach(el => {
+    el.classList.toggle('active',
+      FILTERS.proof && el.dataset.proof === FILTERS.proof);
+  });
+}
+
 function renderTable (filtered) {
   const sorted = sortIssues(filtered);
   const total = sorted.length;
@@ -980,6 +1073,7 @@ function renderTable (filtered) {
       <td><span class="t-author">${escapeHTML(i.author || '—')}</span></td>
       <td class="num">${i.age_days}d</td>
       <td class="num">${i.comments}</td>
+      <td>${renderProofDots(i.proof)}</td>
       <td><span class="t-state ${stateLabel}">${stateLabel}</span></td>
     `;
     tbody.appendChild(tr);
@@ -1013,6 +1107,9 @@ function render () {
   const filtered = applyFilters(STATE.issues);
   renderKPIs(filtered);
   renderTypeTiles(filtered);
+  // Proof tiles ignore the Status filter (same scope as 7-day tiles)
+  // so closed/merged records still feed the proof view.
+  renderProofKPIs(applyFilters(STATE.issues, { skipStatus: true }));
   // Charts only relevant on the dashboard view; cheap to compute either way.
   if (ROUTE.current === 'dashboard') {
     renderChartModule(filtered);
@@ -1888,6 +1985,17 @@ function bindTypeTiles () {
   });
 }
 
+function bindProofTiles () {
+  document.querySelectorAll('.kpi.clickable[data-proof]').forEach(t => {
+    t.addEventListener('click', () => {
+      const v = t.dataset.proof;
+      FILTERS.proof = (FILTERS.proof === v) ? null : v;
+      PAGE.idx = 0;
+      render();
+    });
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Wire the new sidebar VIEWS section + module deep-links + board
    surface pill + assigned-to-me toggle + drawer + new-issue form.
@@ -1981,6 +2089,7 @@ function bindAssignedToMe () {
   bindBoardSurface();
   bindAssignedToMe();
   bindTypeTiles();
+  bindProofTiles();
   bindNewIssueForm();
   bindDrawer();
   window.addEventListener('hashchange', handleRoute);

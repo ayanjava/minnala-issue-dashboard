@@ -862,6 +862,34 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .kpi.type-feat  .k-val { color: var(--color-accent); }
 .kpi.type-chore .k-val { color: var(--color-text-mid); }
 .kpi.type-docs  .k-val { color: var(--color-brand);  }
+
+/* ── Five-proof KPI tiles + per-row proof dots ─────────────────── */
+.kpis-proof {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: var(--space-3);
+}
+.kpi-proof-ok .k-val      { color: var(--color-accent); }
+.kpi-proof-partial .k-val { color: var(--color-alert);  }
+.kpi-proof-missing .k-val { color: var(--color-loss);   }
+.kpi-proof-missing        { border-color: var(--color-loss); }
+.kpi-proof-missing.active { background: var(--color-loss-soft); border-color: var(--color-loss); }
+@media (max-width: 800px) {
+  .kpis-proof { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* 5 dots in the issue-table Proof column */
+.proof-dots {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+.proof-dot          { color: var(--color-text-dim); }
+.proof-dot.proof-supplied { color: var(--color-accent); }
+.proof-dot.proof-na       { color: var(--color-text-mid); opacity: 0.55; }
+.proof-dot.proof-missing  { color: var(--color-loss); }
 .kpi.clickable { cursor: pointer; transition: border-color 120ms, background 120ms; }
 .kpi.clickable:hover { border-color: var(--color-accent); }
 .kpi.clickable.active { background: var(--color-accent-soft); border-color: var(--color-accent); }
