@@ -162,12 +162,14 @@
         <div class="kpi"><div class="k-label">Merged 7d</div>       <div class="k-val" id="kpiMerged7d">—</div></div>
       </section>
 
-      <!-- Type breakdown tiles (Bug / Feature / Chore / Docs) -->
+      <!-- Type breakdown tiles. Each is a click-to-filter chip — click
+           a tile and the whole dashboard narrows to that type.
+           Click again to clear. -->
       <section class="kpis kpis-type">
-        <div class="kpi type-bug"><div class="k-label">🐞 Bugs</div>       <div class="k-val" id="kpiBug">—</div></div>
-        <div class="kpi type-feat"><div class="k-label">✨ Features</div>   <div class="k-val" id="kpiFeat">—</div></div>
-        <div class="kpi type-chore"><div class="k-label">🧹 Chores</div>    <div class="k-val" id="kpiChore">—</div></div>
-        <div class="kpi type-docs"><div class="k-label">📚 Docs</div>       <div class="k-val" id="kpiDocs">—</div></div>
+        <div class="kpi clickable type-bug"   data-kt="bug"   title="Click to filter to bugs only"><div class="k-label">🐞 Bugs</div>     <div class="k-val" id="kpiBug">—</div></div>
+        <div class="kpi clickable type-feat"  data-kt="feat"  title="Click to filter to features only"><div class="k-label">✨ Features</div> <div class="k-val" id="kpiFeat">—</div></div>
+        <div class="kpi clickable type-chore" data-kt="chore" title="Click to filter to chores only"><div class="k-label">🧹 Chores</div>  <div class="k-val" id="kpiChore">—</div></div>
+        <div class="kpi clickable type-docs"  data-kt="docs"  title="Click to filter to docs only"><div class="k-label">📚 Docs</div>     <div class="k-val" id="kpiDocs">—</div></div>
       </section>
 
       <!-- Charts grid -->

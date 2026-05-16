@@ -37,12 +37,13 @@ const FILTERS = {
   submodule: null,
   label:     null,
   type:      'all',
+  kindType:  null,       // bug | feat | chore | docs (set by clicking a Type tile)
   priority:  'all',
   status:    'open',
   age:       'all',
   search:    '',
-  assignedToMe: false,   // top-right toggle on dashboard table
-  surface:   'all',      // Kanban-only surface filter
+  assignedToMe: false,
+  surface:   'all',
 };
 
 // Hash router: #/dashboard #/board #/sprints #/new #/activity #/commits
@@ -582,6 +583,7 @@ function applyFilters (issues) {
     if (FILTERS.module    && i.module    !== FILTERS.module)    return false;
     if (FILTERS.submodule && i.submodule !== FILTERS.submodule) return false;
     if (FILTERS.label && !(i.labels || []).includes(FILTERS.label)) return false;
+    if (FILTERS.kindType && i.kind_type !== FILTERS.kindType) return false;
     if (FILTERS.type === 'issue' && i.is_pr)  return false;
     if (FILTERS.type === 'pr'    && !i.is_pr) return false;
     if (FILTERS.priority !== 'all') {
@@ -618,6 +620,7 @@ function renderFilterBanner () {
   if (FILTERS.module)    chips.push(moduleLabel(FILTERS.module));
   if (FILTERS.submodule) chips.push(submoduleLabel(FILTERS.module, FILTERS.submodule));
   if (FILTERS.label)     chips.push('label:' + FILTERS.label);
+  if (FILTERS.kindType)  chips.push('type:' + FILTERS.kindType);
   if (FILTERS.type !== 'all')     chips.push(FILTERS.type.toUpperCase());
   if (FILTERS.priority !== 'all') chips.push(FILTERS.priority.toUpperCase());
   if (FILTERS.status !== 'open')  chips.push(FILTERS.status);
@@ -631,18 +634,26 @@ function renderFilterBanner () {
 
 /* ── KPI tiles ────────────────────────────────────────────────── */
 
-function renderKPIs () {
-  if (!STATE.stats) return;
-  const t = STATE.stats.totals || {};
-  const p = STATE.stats.by_priority || {};
-  document.getElementById('kpiOpenIssues').textContent = t.open_issues ?? '—';
-  document.getElementById('kpiOpenPRs').textContent    = t.open_prs    ?? '—';
-  document.getElementById('kpiP0').textContent         = p.p0 ?? '—';
-  document.getElementById('kpiP1').textContent         = p.p1 ?? '—';
-  document.getElementById('kpiP2').textContent         = p.p2 ?? '—';
-  document.getElementById('kpiOpened7d').textContent   = t.opened_7d ?? '—';
-  document.getElementById('kpiClosed7d').textContent   = t.closed_7d ?? '—';
-  document.getElementById('kpiMerged7d').textContent   = t.merged_7d ?? '—';
+function renderKPIs (filtered) {
+  // Reactive: KPIs reflect the current global filter set. Previously
+  // this function read STATE.stats (computed once at load), so clicking
+  // Priority/Status/Age pills didn't move the numbers.
+  const src = filtered || STATE.issues || [];
+  const open = src.filter(i => i.state === 'open');
+  const cnt = (p) => open.filter(i => (i.priority || 'none') === p).length;
+  const within = (iso, days) => {
+    if (!iso) return false;
+    const t = new Date(iso).getTime();
+    return !Number.isNaN(t) && t >= (Date.now() - days * 86400000);
+  };
+  document.getElementById('kpiOpenIssues').textContent = open.filter(i => !i.is_pr).length;
+  document.getElementById('kpiOpenPRs').textContent    = open.filter(i =>  i.is_pr).length;
+  document.getElementById('kpiP0').textContent         = cnt('p0');
+  document.getElementById('kpiP1').textContent         = cnt('p1');
+  document.getElementById('kpiP2').textContent         = cnt('p2');
+  document.getElementById('kpiOpened7d').textContent   = src.filter(i => within(i.created_at, 7)).length;
+  document.getElementById('kpiClosed7d').textContent   = src.filter(i => within(i.closed_at,  7)).length;
+  document.getElementById('kpiMerged7d').textContent   = src.filter(i => i.merged && within(i.merged_at, 7)).length;
 }
 
 /* ── Charts ───────────────────────────────────────────────────── */
@@ -885,7 +896,7 @@ function render () {
   renderLabels();
   renderFilterBanner();
   const filtered = applyFilters(STATE.issues);
-  renderKPIs();
+  renderKPIs(filtered);
   renderTypeTiles(filtered);
   // Charts only relevant on the dashboard view; cheap to compute either way.
   if (ROUTE.current === 'dashboard') {
@@ -933,9 +944,11 @@ function bindFilters () {
   });
   document.getElementById('resetBtn').addEventListener('click', () => {
     Object.assign(FILTERS, { module: null, submodule: null, label: null,
-                             type: 'all', priority: 'all', status: 'open',
-                             age: 'all', search: '' });
+                             kindType: null, type: 'all', priority: 'all',
+                             status: 'open', age: 'all', search: '',
+                             assignedToMe: false });
     document.getElementById('search').value = '';
+    const atm = document.getElementById('assignedToMe'); if (atm) atm.checked = false;
     document.querySelectorAll('.pill-group').forEach(g => {
       const first = g.querySelector('.pill'); pillSelect(g.id, first);
     });
@@ -1661,6 +1674,21 @@ function renderTypeTiles (filtered) {
   document.getElementById('kpiFeat').textContent  = c.feat;
   document.getElementById('kpiChore').textContent = c.chore;
   document.getElementById('kpiDocs').textContent  = c.docs;
+  // Highlight the active type-tile if one is selected.
+  document.querySelectorAll('.kpi.clickable[data-kt]').forEach(t => {
+    t.classList.toggle('active', t.dataset.kt === FILTERS.kindType);
+  });
+}
+
+function bindTypeTiles () {
+  document.querySelectorAll('.kpi.clickable[data-kt]').forEach(t => {
+    t.addEventListener('click', () => {
+      const kt = t.dataset.kt;
+      FILTERS.kindType = (FILTERS.kindType === kt) ? null : kt;
+      PAGE.idx = 0;
+      render();
+    });
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1701,6 +1729,7 @@ function bindAssignedToMe () {
   bindNewSidebar();
   bindBoardSurface();
   bindAssignedToMe();
+  bindTypeTiles();
   bindNewIssueForm();
   bindDrawer();
   window.addEventListener('hashchange', handleRoute);

@@ -266,36 +266,57 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--color-text);
 }
 
-/* KPI tiles */
+/* KPI tiles — compact one-line strip. Each tile is just label + value
+ * inline; 8 tiles fit a 1200px viewport without wrap. Below 900px
+ * they wrap into 4 columns, then 2 on phone-width. */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.kpis-type {
+  grid-template-columns: repeat(4, 1fr);
   margin-bottom: var(--space-3);
 }
 .kpi {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
 }
 .kpi .k-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   color: var(--color-text-dim);
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .kpi .k-val {
-  font-size: 28px;
+  font-size: 18px;
   font-weight: 600;
-  margin-top: var(--space-1);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
+  line-height: 1;
 }
 .kpi.p0 .k-val { color: var(--color-loss);  }
 .kpi.p1 .k-val { color: var(--color-alert); }
 .kpi.p2 .k-val { color: var(--color-blue);  }
+
+/* Wrap at narrow viewports */
+@media (max-width: 1200px) {
+  .kpis { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 680px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .kpis-type { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* Cards + charts */
 .card {
@@ -696,14 +717,14 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-family: var(--font-mono);
 }
 
-/* ═════════════════════════════════════════════════════════════
- * Type-breakdown tiles row (matches .kpi style)
- * ═════════════════════════════════════════════════════════════ */
-.kpis-type { grid-template-columns: repeat(4, 1fr); margin-bottom: var(--space-3); }
+/* Type-breakdown tile colors (kpis-type grid is declared above) */
 .kpi.type-bug   .k-val { color: var(--color-loss);   }
 .kpi.type-feat  .k-val { color: var(--color-accent); }
 .kpi.type-chore .k-val { color: var(--color-text-mid); }
 .kpi.type-docs  .k-val { color: var(--color-brand);  }
+.kpi.clickable { cursor: pointer; transition: border-color 120ms, background 120ms; }
+.kpi.clickable:hover { border-color: var(--color-accent); }
+.kpi.clickable.active { background: var(--color-accent-soft); border-color: var(--color-accent); }
 
 /* ═════════════════════════════════════════════════════════════
  * View visibility (hash router toggles .hidden on view-* containers)
