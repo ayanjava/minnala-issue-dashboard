@@ -1,66 +1,28 @@
-name: Refresh issue data
+name: Deploy GitHub Pages
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"  # every 30 minutes
-  workflow_dispatch:        # manual trigger button
   push:
     branches: [main]
     paths:
-      - "scripts/**"
-      - "taxonomy.json"
       - "docs/**"
       - ".github/workflows/**"
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
-  group: refresh-issues
+  group: pages
   cancel-in-progress: false
 
+# Static-only deploy. The dashboard fetches issues + PRs live from the
+# GitHub API at runtime (client-side, see docs/app.js), so this workflow
+# does NOT pre-fetch data — it just publishes the static page when
+# anything under docs/ changes.
 jobs:
-  refresh:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Fetch issues from ayanjava/0dte-v2
-        env:
-          # ISSUES_TOKEN is a fine-grained PAT with `contents:read` +
-          # `issues:read` on ayanjava/0dte-v2. Stored as a repo secret.
-          # Fallback: workflow's own GITHUB_TOKEN (only works if dashboard
-          # repo is also under ayanjava and PAT scope permits cross-repo).
-          ISSUES_TOKEN: ${{ secrets.ISSUES_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python scripts/fetch_issues.py
-          python scripts/classify.py
-
-      - name: Commit refreshed data
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Don't commit the raw blob to keep diffs readable; classify.py
-          # outputs slim issues.json + stats.json which we DO want tracked.
-          git add docs/data/issues.json docs/data/stats.json
-          if git diff --cached --quiet; then
-            echo "no data changes"
-          else
-            git commit -m "chore(data): refresh issue snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
-            git push
-          fi
-
-  deploy-pages:
-    needs: refresh
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment:
@@ -68,8 +30,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main  # pull the just-pushed snapshot
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -18,10 +18,31 @@
     <span class="repo-link"><a id="repoLink" href="https://github.com/ayanjava/0dte-v2/issues" target="_blank" rel="noopener">ayanjava/0dte-v2 →</a></span>
   </div>
   <div class="status">
+    <span id="rateLimit" class="muted"></span>
     <span id="lastUpdated" class="muted">loading…</span>
-    <button id="refreshBtn" class="btn-icon" title="Reload data (re-fetches the JSON snapshot)">↻</button>
+    <button id="settingsBtn" class="btn-icon" title="Settings (PAT for higher rate limit)">⚙</button>
+    <button id="refreshBtn" class="btn-icon" title="Re-fetch from GitHub API">↻</button>
   </div>
 </header>
+
+<!-- Settings panel — collapsed by default. Stores a PAT in localStorage
+     to lift the 60 req/hour anonymous rate limit to 5000/hour. -->
+<section id="settingsPanel" class="settings-panel hidden">
+  <div class="settings-row">
+    <label for="patInput" class="settings-label">GitHub Personal Access Token (optional)</label>
+    <input id="patInput" type="password" placeholder="ghp_… (kept in your browser's localStorage)" autocomplete="off">
+    <button id="patSave"  class="btn-ghost">Save</button>
+    <button id="patClear" class="btn-ghost">Clear</button>
+  </div>
+  <div class="settings-hint muted">
+    Anonymous GitHub API allows 60 requests/hour per IP. Fetching all
+    ~1,000 records uses ~11 calls per page load, so you'll hit the wall
+    in ~5 refreshes. Add a fine-grained read-only PAT
+    (<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">create one here</a>)
+    scoped to <code>ayanjava/0dte-v2</code> for 5,000 req/hour. The
+    token never leaves your browser.
+  </div>
+</section>
 
 <div class="layout">
 
@@ -33,16 +54,6 @@
         <li class="loading muted">Loading…</li>
       </ul>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-head">Quick filters</div>
-      <ul class="quick-list">
-        <li><button class="link-btn" data-quick="all">All open</button></li>
-        <li><button class="link-btn" data-quick="p0">🔴 P0 only</button></li>
-        <li><button class="link-btn" data-quick="stale">🕰️ &gt; 90 days</button></li>
-        <li><button class="link-btn" data-quick="recent">✨ Last 7 days</button></li>
-        <li><button class="link-btn" data-quick="uncategorized">❓ Uncategorized</button></li>
-      </ul>
-    </div>
   </aside>
 
   <!-- ── Main panel ── -->
@@ -50,6 +61,14 @@
 
     <!-- Filter bar -->
     <section class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Type</span>
+        <div class="pill-group" id="filterType">
+          <button class="pill active" data-t="all">All</button>
+          <button class="pill" data-t="issue">Issue</button>
+          <button class="pill" data-t="pr">PR</button>
+        </div>
+      </div>
       <div class="filter-group">
         <span class="filter-label">Priority</span>
         <div class="pill-group" id="filterPriority">
@@ -64,6 +83,7 @@
         <span class="filter-label">Status</span>
         <div class="pill-group" id="filterStatus">
           <button class="pill active" data-s="open">Open</button>
+          <button class="pill" data-s="merged">Merged</button>
           <button class="pill" data-s="closed">Closed</button>
           <button class="pill" data-s="all">All</button>
         </div>
@@ -79,7 +99,7 @@
         </div>
       </div>
       <div class="filter-group search">
-        <input id="search" type="search" placeholder="Search title or #number…" autocomplete="off">
+        <input id="search" type="search" placeholder="Search title, #number, author…" autocomplete="off">
       </div>
       <div class="filter-group reset">
         <button id="resetBtn" class="btn-ghost">Reset</button>
@@ -88,21 +108,26 @@
 
     <!-- KPI tiles -->
     <section class="kpis" id="kpis">
-      <div class="kpi"><div class="k-label">Total open</div>      <div class="k-val" id="kpiOpen">—</div></div>
-      <div class="kpi p0"><div class="k-label">P0</div>            <div class="k-val" id="kpiP0">—</div></div>
-      <div class="kpi p1"><div class="k-label">P1</div>            <div class="k-val" id="kpiP1">—</div></div>
-      <div class="kpi p2"><div class="k-label">P2</div>            <div class="k-val" id="kpiP2">—</div></div>
-      <div class="kpi"><div class="k-label">Opened 7d</div>        <div class="k-val" id="kpiOpened7d">—</div></div>
-      <div class="kpi"><div class="k-label">Closed 7d</div>        <div class="k-val" id="kpiClosed7d">—</div></div>
+      <div class="kpi"><div class="k-label">Open issues</div>       <div class="k-val" id="kpiOpenIssues">—</div></div>
+      <div class="kpi"><div class="k-label">Open PRs</div>          <div class="k-val" id="kpiOpenPRs">—</div></div>
+      <div class="kpi p0"><div class="k-label">P0</div>             <div class="k-val" id="kpiP0">—</div></div>
+      <div class="kpi p1"><div class="k-label">P1</div>             <div class="k-val" id="kpiP1">—</div></div>
+      <div class="kpi p2"><div class="k-label">P2</div>             <div class="k-val" id="kpiP2">—</div></div>
+      <div class="kpi"><div class="k-label">Opened 7d</div>         <div class="k-val" id="kpiOpened7d">—</div></div>
+      <div class="kpi"><div class="k-label">Closed 7d</div>         <div class="k-val" id="kpiClosed7d">—</div></div>
+      <div class="kpi"><div class="k-label">Merged 7d</div>         <div class="k-val" id="kpiMerged7d">—</div></div>
     </section>
 
     <!-- Active filter banner -->
     <section id="filterBanner" class="filter-banner hidden"></section>
 
+    <!-- Error banner -->
+    <section id="errorBanner" class="error-banner hidden"></section>
+
     <!-- Charts grid -->
     <section class="charts">
       <div class="card chart-card chart-donut">
-        <div class="card-head">Issues by module <span class="muted">(open)</span></div>
+        <div class="card-head">By module <span class="muted">(open)</span></div>
         <div class="chart-wrap"><canvas id="chartModule"></canvas></div>
       </div>
       <div class="card chart-card chart-stack">
@@ -121,14 +146,14 @@
 
     <!-- Oldest open -->
     <section class="card">
-      <div class="card-head">🕰️ Oldest open issues</div>
+      <div class="card-head">🕰️ Oldest open items</div>
       <ul id="oldestList" class="oldest-list"></ul>
     </section>
 
     <!-- Main issue table -->
     <section class="card">
       <div class="card-head">
-        <span id="tableHead">Issues</span>
+        <span id="tableHead">Issues &amp; PRs</span>
         <span class="muted" id="tableCount"></span>
       </div>
       <div class="table-wrap">
@@ -136,9 +161,11 @@
           <thead>
             <tr>
               <th data-sort="number" class="num">#</th>
+              <th data-sort="kind">Type</th>
               <th data-sort="title">Title</th>
               <th data-sort="module">Module</th>
               <th data-sort="priority">Pri</th>
+              <th data-sort="author">Author</th>
               <th data-sort="age_days" class="num">Age</th>
               <th data-sort="comments" class="num">💬</th>
               <th data-sort="state">State</th>
@@ -151,9 +178,8 @@
     </section>
 
     <footer class="footer muted">
-      Auto-refreshes every 30 min via GitHub Actions.
-      Source: <a href="https://github.com/ayanjava/0dte-v2/issues" target="_blank" rel="noopener">ayanjava/0dte-v2</a>.
-      Click any row to open the issue in a new tab.
+      Live data from <a href="https://github.com/ayanjava/0dte-v2" target="_blank" rel="noopener">ayanjava/0dte-v2</a>
+      via GitHub API. Click any row to open in a new tab.
     </footer>
 
   </main>
