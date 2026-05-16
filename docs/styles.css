@@ -102,6 +102,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 .brand { display: flex; align-items: center; gap: var(--space-3); }
 .brand-icon { font-size: 18px; }
+/* Hamburger — hidden on desktop, shown on mobile via media query. */
+.sidebar-toggle { display: none; font-size: 18px; padding: 2px 8px; }
+.sidebar-backdrop {
+  position: fixed; inset: 0; z-index: 14;
+  background: rgba(0, 0, 0, 0.55);
+}
+.sidebar-backdrop.hidden { display: none; }
 .brand-text { font-weight: 600; letter-spacing: 0.2px; }
 .repo-link { margin-left: var(--space-3); font-size: 12px; color: var(--color-text-dim); }
 .repo-link a { color: var(--color-text-mid); }
@@ -1182,4 +1189,43 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 @media (max-width: 700px) {
   .board { grid-template-columns: 1fr; }
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * Mobile: sidebar becomes a slide-in drawer triggered by hamburger.
+ * Below 900px the 264px column would steal most of the viewport,
+ * so we collapse the layout to a single column and overlay the
+ * sidebar on top when toggled.
+ * ═════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .sidebar-toggle { display: inline-flex; }
+  .layout { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 15;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    box-shadow: var(--shadow-deep);
+  }
+  body.sidebar-open .sidebar { transform: translateX(0); }
+  .main { padding: var(--space-3); }
+  .filters { padding: var(--space-2); gap: var(--space-2); }
+  .filter-group.search { min-width: 100%; }
+  .charts { grid-template-columns: 1fr; gap: var(--space-2); }
+  .chart-card .chart-wrap { height: 220px; }
+  .topbar { padding: var(--space-2) var(--space-3); }
+  .brand-text { font-size: 13px; }
+  .repo-link { display: none; }
+  #rateLimit { font-size: 10px; }
+  /* Drawer modal: cap width on mobile */
+  .drawer-panel { width: 100%; max-height: calc(100vh - 32px); }
+  .drawer { padding: var(--space-3); }
+}
+@media (max-width: 500px) {
+  .kpi .k-val { font-size: 16px; }
+  .kpi { padding: var(--space-1) var(--space-2); }
+  #issueTable th, #issueTable td { padding: var(--space-1) var(--space-2); font-size: 12px; }
+  .pill { padding: 3px var(--space-2); font-size: 11px; }
 }

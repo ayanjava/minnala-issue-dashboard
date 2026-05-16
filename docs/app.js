@@ -783,11 +783,41 @@ function renderOldest () {
 
 function renderLabels () {
   const root = document.getElementById('labelList');
+  const hint = document.querySelector('.sidebar .sidebar-sub-hint');
   root.innerHTML = '';
-  // Sorted by open-count desc. Search input narrows the rendered list
-  // (substring match on label name). Cap to 40 visible after search.
+
+  // Sorted by open-count desc.
+  // - Default: LABEL_META (whole-repo open issues).
+  // - When FILTERS.module is set: rebuild counts from THAT module's
+  //   open issues only, so the sidebar shows only labels that exist
+  //   inside the selected bucket. (Submodule honored too.)
+  // - Search input narrows by substring on label name.
   const q = (document.getElementById('labelSearch')?.value || '').trim().toLowerCase();
-  const entries = Array.from(LABEL_META.entries())
+  let entries;
+  if (FILTERS.module) {
+    const inModule = STATE.issues.filter(i =>
+      i.state === 'open' &&
+      i.module === FILTERS.module &&
+      (!FILTERS.submodule || i.submodule === FILTERS.submodule)
+    );
+    const local = new Map();
+    for (const i of inModule) {
+      for (const lname of (i.labels || [])) {
+        const m = local.get(lname)
+          || { color: LABEL_META.get(lname)?.color || '#888',
+               count: 0, count_pr: 0, count_issue: 0 };
+        m.count++;
+        if (i.is_pr) m.count_pr++; else m.count_issue++;
+        local.set(lname, m);
+      }
+    }
+    entries = Array.from(local.entries());
+    if (hint) hint.textContent = `in ${moduleLabel(FILTERS.module).split(' ').slice(1).join(' ') || FILTERS.module}`;
+  } else {
+    entries = Array.from(LABEL_META.entries());
+    if (hint) hint.textContent = 'auto · click to filter';
+  }
+  entries = entries
     .filter(([name, m]) => m.count > 0 && (q === '' || name.toLowerCase().includes(q)))
     .sort((a, b) => b[1].count - a[1].count);
   if (entries.length === 0) {
@@ -1532,7 +1562,18 @@ function bindNewIssueForm () {
       await loadData();
       render();
     } catch (e) {
-      statusEl.textContent = `Error: ${e.message}`;
+      // Special-case the common 403 'Resource not accessible' — that's
+      // the PAT-missing-Issues:Write case. Give the user a click-path
+      // fix instead of a generic API error.
+      const is403 = e.status === 403 || /403/.test(e.message);
+      const isReadOnly = /not accessible/i.test(e.message);
+      if (is403 && isReadOnly) {
+        statusEl.innerHTML = `<span style="color:var(--color-loss)">PAT lacks <strong>Issues: Write</strong>.</span> ` +
+          `Open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">your PAT</a>, ` +
+          `change Issues → <strong>Read and write</strong>, save, then paste again via ⚙ Settings.`;
+      } else {
+        statusEl.textContent = `Error: ${e.message}`;
+      }
     }
   });
 }
@@ -1702,7 +1743,31 @@ function bindTypeTiles () {
 
 function bindNewSidebar () {
   document.querySelectorAll('.view-row').forEach(b => {
-    b.addEventListener('click', () => navigate(b.dataset.route));
+    b.addEventListener('click', () => {
+      navigate(b.dataset.route);
+      closeMobileSidebar();    // auto-close on mobile after picking a view
+    });
+  });
+}
+
+// ── Mobile sidebar drawer ─────────────────────────────────────
+function openMobileSidebar () {
+  document.body.classList.add('sidebar-open');
+  document.getElementById('sidebarBackdrop')?.classList.remove('hidden');
+}
+function closeMobileSidebar () {
+  document.body.classList.remove('sidebar-open');
+  document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+}
+function bindMobileSidebar () {
+  document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    if (document.body.classList.contains('sidebar-open')) closeMobileSidebar();
+    else openMobileSidebar();
+  });
+  document.getElementById('sidebarBackdrop')?.addEventListener('click', closeMobileSidebar);
+  // Sidebar item clicks (module/submodule) — also close on mobile.
+  document.getElementById('moduleTree')?.addEventListener('click', () => {
+    if (window.innerWidth <= 900) closeMobileSidebar();
   });
 }
 
@@ -1731,6 +1796,7 @@ function bindAssignedToMe () {
   bindFilters();
   bindSettings();
   bindNewSidebar();
+  bindMobileSidebar();
   // Sidebar label search — incremental filter on the rendered list only.
   document.getElementById('labelSearch')?.addEventListener('input', () => renderLabels());
   bindBoardSurface();
