@@ -1709,12 +1709,46 @@ const REPORT_API_BASE  = `https://api.github.com/repos/${REPO}/contents/reports`
 const REPORT_HUMAN_BASE = `https://github.com/${REPO}/blob/main/reports`;
 
 const REPORT_FILES = [
-  { key: 'progress',     name: 'progress.json',     desc: 'Issue counts + 5-proof status per module' },
-  { key: 'tests',        name: 'test-summary.json', desc: 'pytest --json-report output' },
-  { key: 'sonar',        name: 'sonar-summary.json',desc: 'SonarQube quality-gate + metrics' },
-  { key: 'coverage',     name: 'coverage.json',     desc: 'coverage.py per-package line coverage' },
-  { key: 'buildStatus',  name: 'build-status.json', desc: 'pre-commit + GH-actions check results' },
+  { key: 'progress',     name: 'progress.json',     desc: 'Issue counts + 5-proof status per module',
+    rebuild: 'python deploy/labels/build_progress_report.py > reports/progress.json' },
+  { key: 'tests',        name: 'test-summary.json', desc: 'pytest --json-report output',
+    rebuild: 'python -m pytest tests/ --json-report --json-report-file=reports/test-summary.json' },
+  { key: 'sonar',        name: 'sonar-summary.json',desc: 'SonarQube quality-gate + metrics',
+    rebuild: 'sonar-scanner && python deploy/reports/build_sonar_summary.py > reports/sonar-summary.json' },
+  { key: 'coverage',     name: 'coverage.json',     desc: 'coverage.py per-package line coverage',
+    rebuild: 'coverage run --source=app,src -m pytest && coverage json -o reports/coverage.json' },
+  { key: 'buildStatus',  name: 'build-status.json', desc: 'pre-commit + GH-actions check results',
+    rebuild: 'python deploy/labels/build_build_status.py > reports/build-status.json' },
 ];
+
+// Returns one of: 'live', 'placeholder', 'stale', 'missing'.
+// "Placeholder" = file exists but the meaningful fields are null (we
+// committed schema-only seeds so the dashboard can render the layout
+// before CI wires the real numbers). "Stale" = generated_at is older
+// than 24h. Used to colour the source rows.
+function reportTrust (key, slot, err) {
+  if (err) return 'missing';
+  const data = slot?.data;
+  if (!data) return 'missing';
+  if (data.source === 'manual-seed') return 'placeholder';
+  // Per-file "is this real?" heuristic.
+  const realByKey = {
+    progress:    () => data.totals?.open != null && data.totals?.closed != null,
+    tests:       () => (data.summary?.passed ?? null) !== null,
+    sonar:       () => data.metrics?.lines_of_code != null,
+    coverage:    () => data.overall_pct != null,
+    buildStatus: () => {
+      const checks = Object.values(data.checks || {});
+      return checks.some(c => c.status && c.status !== 'unknown');
+    },
+  };
+  if (!(realByKey[key]?.() ?? true)) return 'placeholder';
+  if (data.generated_at) {
+    const t = new Date(data.generated_at).getTime();
+    if (!Number.isNaN(t) && Date.now() - t > 24 * 3600 * 1000) return 'stale';
+  }
+  return 'live';
+}
 
 async function fetchReports () {
   const out = {};
@@ -1766,8 +1800,16 @@ function renderReportsKPIs ({ reports }) {
       ? Math.round(tests.summary.passed / tests.summary.total * 100) + '%' : '—';
   document.getElementById('rptCoveragePct').textContent =
     cov?.overall_pct != null ? cov.overall_pct + '%' : '—';
-  document.getElementById('rptQualityGate').textContent =
-    sonar?.quality_gate || '—';
+  // Quality-gate tile: if sonar has a web_url, render it as a link
+  // out to the actual SonarQube dashboard. Otherwise show the bare
+  // gate name (PASSED / FAILED / PENDING).
+  const qgEl = document.getElementById('rptQualityGate');
+  const qg = sonar?.quality_gate || '—';
+  if (sonar?.web_url) {
+    qgEl.innerHTML = `<a href="${escapeHTML(sonar.web_url)}" target="_blank" rel="noopener">${escapeHTML(qg)} ↗</a>`;
+  } else {
+    qgEl.textContent = qg;
+  }
   document.getElementById('rptProvedPct').textContent =
     prog?.totals?.proved_pct != null ? prog.totals.proved_pct + '%' : '—';
 
@@ -1778,13 +1820,21 @@ function renderReportsKPIs ({ reports }) {
 }
 
 function renderReportsCharts ({ reports }) {
-  // Module progress: open / closed stacked bar
+  // Module progress — replaced the absolute-count stacked bar (which
+  // squashed everything except Backend Core into invisible slivers)
+  // with a sorted 100%-stacked progress chart: every module is the
+  // same width, the green portion is its done %, the amber portion
+  // is its remaining open work. Sorted by done % so the modules that
+  // need the most attention sit at the bottom.
   const prog = reports.progress?.data;
   if (prog?.by_module) {
     const mods = Object.entries(prog.by_module)
-      .filter(([id]) => id !== 'uncategorized')
-      .sort((a, b) => (b[1].issues || 0) - (a[1].issues || 0));
+      .filter(([id, m]) => id !== 'uncategorized' && (m.open + m.closed) > 0)
+      .sort((a, b) => (b[1].done_pct || 0) - (a[1].done_pct || 0));
     const labels = mods.map(([, m]) => m.label || '');
+    const donePct   = mods.map(([, m]) => m.done_pct ?? 0);
+    const openPct   = mods.map(([, m]) => +(100 - (m.done_pct ?? 0)).toFixed(1));
+    const totals    = mods.map(([, m]) => (m.open || 0) + (m.closed || 0));
     chartDestroy('rptModuleProgress');
     CHARTS.rptModuleProgress = new Chart(
       document.getElementById('rptModuleProgress'),
@@ -1793,17 +1843,36 @@ function renderReportsCharts ({ reports }) {
         data: {
           labels,
           datasets: [
-            { label: 'Closed', data: mods.map(([, m]) => m.closed), backgroundColor: COLOR.accent },
-            { label: 'Open',   data: mods.map(([, m]) => m.open),   backgroundColor: COLOR.alert },
+            { label: 'Done', data: donePct, backgroundColor: COLOR.accent,
+              meta_counts: mods.map(([, m]) => m.closed) },
+            { label: 'Open', data: openPct, backgroundColor: COLOR.alert,
+              meta_counts: mods.map(([, m]) => m.open) },
           ],
         },
         options: {
           responsive: true, maintainAspectRatio: false, indexAxis: 'y',
           scales: {
-            x: { stacked: true, ticks: { color: COLOR.text }, grid: { color: COLOR.grid } },
-            y: { stacked: true, ticks: { color: COLOR.text, autoSkip: false }, grid: { display: false } },
+            x: { stacked: true, min: 0, max: 100,
+                 ticks: { color: COLOR.text, callback: v => v + '%' },
+                 grid: { color: COLOR.grid } },
+            y: { stacked: true,
+                 ticks: { color: COLOR.text, autoSkip: false, font: { size: 11 } },
+                 grid: { display: false } },
           },
-          plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+          plugins: {
+            legend: { position: 'bottom',
+                      labels: { color: COLOR.text, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const idx = ctx.dataIndex;
+                  const ds  = ctx.dataset;
+                  const count = ds.meta_counts[idx];
+                  return ` ${ds.label}: ${count} (${ctx.parsed.x}% of ${totals[idx]})`;
+                },
+              },
+            },
+          },
         },
       });
   }
@@ -1839,9 +1908,16 @@ function renderReportsCharts ({ reports }) {
     chartEmpty('rptCoverageByModule', 'No coverage.json data yet — wire `coverage json -o reports/coverage.json` into CI.');
   }
 
-  // Test breakdown
+  // Test breakdown — only render if at least one bucket has a real
+  // (non-null, > 0) count. The placeholder test-summary.json carries
+  // total:948 but every bucket is null, which previously drew an
+  // empty doughnut with just the legend visible.
   const t = reports.tests?.data?.summary;
-  if (t && t.total) {
+  const tHasData = t && (
+    (t.passed > 0) || (t.failed > 0) || (t.skipped > 0) ||
+    (t.error > 0) || (t.xfail > 0)
+  );
+  if (tHasData) {
     chartDestroy('rptTestBreakdown');
     CHARTS.rptTestBreakdown = new Chart(
       document.getElementById('rptTestBreakdown'),
@@ -1861,7 +1937,10 @@ function renderReportsCharts ({ reports }) {
         },
       });
   } else {
-    chartEmpty('rptTestBreakdown', 'No test-summary.json data yet — wire `pytest --json-report --json-report-file=reports/test-summary.json` into CI.');
+    chartEmpty('rptTestBreakdown',
+      'No test-summary.json data yet. Run locally:\n' +
+      '`python -m pytest tests/ --json-report --json-report-file=reports/test-summary.json`\n' +
+      'then commit reports/test-summary.json to the 0dte-v2 main branch.');
   }
 
   // Sonar findings
@@ -1904,20 +1983,47 @@ function chartEmpty (canvasId, msg) {
 function renderReportsSources ({ reports, errors }) {
   const list = document.getElementById('rptSourcesList');
   list.innerHTML = REPORT_FILES.map(f => {
-    const r = reports[f.key];
-    const err = errors[f.key];
-    const status = r ? '✅ loaded' : (err ? `❌ ${err}` : '— missing');
-    const when = r?.data?.generated_at ? fmtRelative(r.data.generated_at) : '—';
+    const slot = reports[f.key];
+    const err  = errors[f.key];
+    const trust = reportTrust(f.key, slot, err);
+    const trustBadge = ({
+      live:        '<span class="trust live">● LIVE</span>',
+      placeholder: '<span class="trust placeholder">◐ PLACEHOLDER</span>',
+      stale:       '<span class="trust stale">⚠ STALE</span>',
+      missing:     `<span class="trust missing">✗ MISSING${err ? ` (${escapeHTML(err)})` : ''}</span>`,
+    })[trust];
+    const when = slot?.data?.generated_at ? fmtRelative(slot.data.generated_at) : '—';
+    const commit = slot?.data?.commit
+      ? `<code class="rs-commit" title="Report generated against this commit">${escapeHTML(slot.data.commit.slice(0, 7))}</code>`
+      : '';
     const url = `${REPORT_HUMAN_BASE}/${f.name}`;
-    return `<li class="report-source-row">
-      <span class="rs-name"><a target="_blank" rel="noopener" href="${url}">${f.name}</a></span>
+    const rebuild = f.rebuild
+      ? `<button class="rs-copy btn-ghost" data-cmd="${escapeHTML(f.rebuild)}" title="Copy local rebuild command">📋 rebuild cmd</button>`
+      : '';
+    return `<li class="report-source-row trust-${trust}">
+      <span class="rs-name"><a target="_blank" rel="noopener" href="${url}">${f.name}</a> ${commit}</span>
       <span class="rs-desc muted">${escapeHTML(f.desc)}</span>
-      <span class="rs-status">${status}</span>
+      <span class="rs-status">${trustBadge}</span>
       <span class="rs-when muted">${when}</span>
+      <span class="rs-action">${rebuild}</span>
     </li>`;
   }).join('');
+  list.querySelectorAll('.rs-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cmd = btn.dataset.cmd;
+      try {
+        await navigator.clipboard.writeText(cmd);
+        const old = btn.textContent;
+        btn.textContent = '✓ copied';
+        setTimeout(() => { btn.textContent = old; }, 1200);
+      } catch { /* user can copy manually */ }
+    });
+  });
+  // The fetcher uses GitHub Contents API (Accept: application/vnd.github.raw)
+  // because raw.githubusercontent.com requires anonymous read which is
+  // refused for private repos. The note must match what the code does.
   document.getElementById('rptSourcesNote').textContent =
-    `live from raw.githubusercontent.com/${REPO}/main/reports/`;
+    `live from api.github.com/repos/${REPO}/contents/reports/ — private repo, needs PAT in ⚙ Settings`;
 }
 
 function renderReportsFailing ({ reports }) {
@@ -1979,6 +2085,21 @@ function bindReportsRefresh () {
   document.getElementById('rptRefreshBtn')?.addEventListener('click', async () => {
     STATE.reports = null;
     await renderReportsView();
+  });
+  // Click-to-copy on every `data-copy="..."` code block in the
+  // "How to run" panel. The user can drop the command straight into
+  // their 0dte-v2 shell.
+  document.querySelectorAll('.how-to-run code[data-copy]').forEach(code => {
+    code.style.cursor = 'pointer';
+    code.title = 'Click to copy';
+    code.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code.dataset.copy);
+        const old = code.textContent;
+        code.textContent = '✓ copied to clipboard';
+        setTimeout(() => { code.textContent = old; }, 1200);
+      } catch { /* clipboard blocked — user can copy manually */ }
+    });
   });
 }
 

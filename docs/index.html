@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-17c">
+<link rel="stylesheet" href="styles.css?v=2026-05-17d">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -476,6 +476,33 @@
 
       <section class="card">
         <div class="card-head">
+          <span>🏃 How to run / regenerate</span>
+          <span class="muted">copy-pasteable from your shell in the 0dte-v2 repo root</span>
+        </div>
+        <ul class="how-to-run">
+          <li><b>Full pytest run (~948 test files)</b>
+            <pre><code data-copy="python -m pytest tests/ -v --tb=line">python -m pytest tests/ -v --tb=line</code></pre></li>
+          <li><b>Test summary JSON (for the Tests tile + breakdown chart)</b>
+            <pre><code data-copy="python -m pytest tests/ --json-report --json-report-file=reports/test-summary.json">python -m pytest tests/ --json-report --json-report-file=reports/test-summary.json</code></pre></li>
+          <li><b>Storage / Alembic tests (faster slice)</b>
+            <pre><code data-copy="python -m pytest tests/storage/ -v">python -m pytest tests/storage/ -v</code></pre></li>
+          <li><b>Vitest frontend tests</b>
+            <pre><code data-copy="cd frontend && npm test -- --run">cd frontend && npm test -- --run</code></pre></li>
+          <li><b>Coverage JSON (for the Coverage tile + by-package chart)</b>
+            <pre><code data-copy="coverage run --source=app,src -m pytest tests/ && coverage json -o reports/coverage.json">coverage run --source=app,src -m pytest tests/ && coverage json -o reports/coverage.json</code></pre></li>
+          <li><b>SonarQube scan (requires sonar-scanner + .env.sonar)</b>
+            <pre><code data-copy="sonar-scanner -Dsonar.projectKey=ayanjava_0dte-v2">sonar-scanner -Dsonar.projectKey=ayanjava_0dte-v2</code></pre></li>
+          <li><b>Module progress JSON (rate-limit-safe REST API)</b>
+            <pre><code data-copy="python deploy/labels/build_progress_report.py > reports/progress.json">python deploy/labels/build_progress_report.py > reports/progress.json</code></pre></li>
+          <li><b>5-proof: tag every open + closed issue missing one+ proof</b>
+            <pre><code data-copy="python deploy/labels/backfill_needs_proof.py --state all">python deploy/labels/backfill_needs_proof.py --state all</code></pre></li>
+          <li><b>Commit + push the regenerated reports (what the dashboard reads)</b>
+            <pre><code data-copy="git add reports/ && git commit -m 'reports: refresh' && git push origin stable/dev">git add reports/ && git commit -m 'reports: refresh' && git push origin stable/dev</code></pre></li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
           <span>🛡️ Module completion + linked issues</span>
           <span class="muted">click a row to filter the Dashboard by that module</span>
         </div>
@@ -551,6 +578,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-17c"></script>
+<script src="app.js?v=2026-05-17d"></script>
 </body>
 </html>
