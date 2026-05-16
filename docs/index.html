@@ -46,14 +46,34 @@
 
 <div class="layout">
 
-  <!-- ── Sidebar: module/submodule tree ── -->
+  <!-- ── Sidebar ── -->
   <aside class="sidebar" id="sidebar">
+
+    <!-- Curated module tree (taxonomy.json rules) -->
     <div class="sidebar-section">
       <div class="sidebar-head">Modules</div>
       <ul id="moduleTree" class="module-tree">
         <li class="loading muted">Loading…</li>
       </ul>
     </div>
+
+    <!-- Oldest open items (moved from main panel) -->
+    <div class="sidebar-section">
+      <div class="sidebar-head">🕰️ Oldest open</div>
+      <ul id="oldestList" class="sidebar-oldest"></ul>
+    </div>
+
+    <!-- Auto-discovered labels: every unique label on every open record,
+         sorted by count desc. New labels (e.g. ml-models, dl, drift)
+         appear here automatically without taxonomy edits. -->
+    <div class="sidebar-section">
+      <div class="sidebar-head">
+        Labels
+        <span class="muted sidebar-sub-hint">auto · click to filter</span>
+      </div>
+      <ul id="labelList" class="label-list"></ul>
+    </div>
+
   </aside>
 
   <!-- ── Main panel ── -->
@@ -142,12 +162,6 @@
         <div class="card-head">Age distribution <span class="muted">(open)</span></div>
         <div class="chart-wrap"><canvas id="chartAge"></canvas></div>
       </div>
-    </section>
-
-    <!-- Oldest open -->
-    <section class="card">
-      <div class="card-head">🕰️ Oldest open items</div>
-      <ul id="oldestList" class="oldest-list"></ul>
     </section>
 
     <!-- Main issue table -->

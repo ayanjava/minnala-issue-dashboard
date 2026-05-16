@@ -216,6 +216,44 @@
       ]
     },
     {
+      "id": "ml-dl",
+      "label": "ML & DL",
+      "icon": "🧠",
+      "color": "oklch(0.72 0.14 300)",
+      "submodules": [
+        {
+          "id": "models",
+          "label": "Models",
+          "rules": [
+            {"label_any": ["ml-models", "model", "ml"]},
+            {"title_contains": ["XGBoost", "xgboost", "HMM", "LSTM", "TCN", "TFT", "FinBERT", "Chronos", "Wolpert", "stacker", "ARIMA", "GARCH"]}
+          ]
+        },
+        {
+          "id": "training",
+          "label": "Training",
+          "rules": [
+            {"label_any": ["dl", "deep-learning", "training"]},
+            {"title_contains": ["retrain", "fine-tune", "finetune", "training run", "Layer 1 foundation", "Layer 2 forecast"]}
+          ]
+        },
+        {
+          "id": "features",
+          "label": "Features & Signals",
+          "rules": [
+            {"title_contains": ["feature engine", "regime detector", "shadow harness", "drift detection", "score cache"]}
+          ]
+        },
+        {
+          "id": "drift",
+          "label": "Drift & Eval",
+          "rules": [
+            {"title_contains": ["drift", "shadow validation", "DSR", "Sharpe", "p-value", "kill-switch"]}
+          ]
+        }
+      ]
+    },
+    {
       "id": "infra",
       "label": "Infra & Deploy",
       "icon": "🚀",

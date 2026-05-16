@@ -29,12 +29,15 @@ const STATE = {
 const FILTERS = {
   module:    null,
   submodule: null,
+  label:     null,       // single auto-discovered label
   type:      'all',      // all | issue | pr
   priority:  'all',      // all | p0 | p1 | p2 | none
   status:    'open',     // open | closed | merged | all
   age:       'all',
   search:    '',
 };
+
+const LABEL_META = new Map();   // labelName -> { color, count, used_pr, used_issue }
 
 const SORT  = { col: 'updated_at', dir: 'desc' };
 const PAGE  = { idx: 0, size: 25 };
@@ -163,7 +166,20 @@ function slimRecord (item, taxonomy) {
   const isPR = !!item.pull_request;
   const merged = isPR && !!(item.pull_request.merged_at);
   const draft = isPR && (item.draft === true);
-  const labels = (item.labels || []).map(l => l.name);
+  const labelObjs = (item.labels || []);
+  const labels = labelObjs.map(l => l.name);
+  // Stash hex color from the GH label record so the sidebar Labels
+  // section can render the colored dot. Only counts toward "open"
+  // totals here — closed records still pass through.
+  for (const lo of labelObjs) {
+    const m = LABEL_META.get(lo.name) ||
+      { color: '#' + (lo.color || '888'), count: 0, count_pr: 0, count_issue: 0 };
+    if (item.state === 'open') {
+      m.count++;
+      if (isPR) m.count_pr++; else m.count_issue++;
+    }
+    LABEL_META.set(lo.name, m);
+  }
   const { module, submodule } = classifyOne(item, taxonomy);
 
   // For PRs: treat 'closed + merged_at set' as a separate "merged" state
@@ -303,6 +319,7 @@ async function loadData () {
     }
     const token = getPAT();
     const raw = await fetchAllIssues(token);
+    LABEL_META.clear();          // rebuild label index from scratch
     STATE.issues  = raw.map(r => slimRecord(r, STATE.taxonomy));
     STATE.stats   = buildStats(STATE.issues, STATE.taxonomy);
     STATE.modules = STATE.stats.modules;
@@ -388,12 +405,17 @@ function escapeHTML (s) {
 function renderSidebar () {
   const root = document.getElementById('moduleTree');
   root.innerHTML = '';
+  // Show ALL taxonomy modules — including empty ones — so the menu
+  // structure is visible as a placeholder (e.g. ML & DL waiting for
+  // its first labeled issue). Empty rows are dimmed via .empty class.
   for (const m of STATE.modules) {
-    if (m.open === 0 && (!m.submodules || m.submodules.every(s => s.open === 0))) continue;
+    const isEmpty = m.open === 0 && (!m.submodules || m.submodules.every(s => s.open === 0));
     const li = document.createElement('li');
     li.className = (FILTERS.module === m.id) ? 'expanded' : '';
     const head = document.createElement('button');
-    head.className = 'module-row' + (FILTERS.module === m.id && !FILTERS.submodule ? ' active' : '');
+    head.className = 'module-row'
+      + (FILTERS.module === m.id && !FILTERS.submodule ? ' active' : '')
+      + (isEmpty ? ' empty' : '');
     head.innerHTML = `
       <span class="chev">▸</span>
       <span class="module-icon">${m.icon}</span>
@@ -442,6 +464,7 @@ function applyFilters (issues) {
   return issues.filter(i => {
     if (FILTERS.module    && i.module    !== FILTERS.module)    return false;
     if (FILTERS.submodule && i.submodule !== FILTERS.submodule) return false;
+    if (FILTERS.label && !(i.labels || []).includes(FILTERS.label)) return false;
     if (FILTERS.type === 'issue' && i.is_pr)  return false;
     if (FILTERS.type === 'pr'    && !i.is_pr) return false;
     if (FILTERS.priority !== 'all') {
@@ -473,6 +496,7 @@ function renderFilterBanner () {
   const chips = [];
   if (FILTERS.module)    chips.push(moduleLabel(FILTERS.module));
   if (FILTERS.submodule) chips.push(submoduleLabel(FILTERS.module, FILTERS.submodule));
+  if (FILTERS.label)     chips.push('label:' + FILTERS.label);
   if (FILTERS.type !== 'all')     chips.push(FILTERS.type.toUpperCase());
   if (FILTERS.priority !== 'all') chips.push(FILTERS.priority.toUpperCase());
   if (FILTERS.status !== 'open')  chips.push(FILTERS.status);
@@ -613,6 +637,7 @@ function renderOldest () {
   const items = STATE.stats?.oldest_open || [];
   for (const i of items.slice(0, 10)) {
     const li = document.createElement('li');
+    li.title = i.title;        // hover shows full title in tight sidebar
     li.onclick = () => window.open(i.url, '_blank', 'noopener');
     li.innerHTML = `
       <span class="o-num">${i.is_pr ? 'PR' : '#'}${i.number}</span>
@@ -621,7 +646,39 @@ function renderOldest () {
     `;
     list.appendChild(li);
   }
-  if (items.length === 0) list.innerHTML = '<li class="muted">No open items.</li>';
+  if (items.length === 0) list.innerHTML = '<li class="muted">None.</li>';
+}
+
+function renderLabels () {
+  const root = document.getElementById('labelList');
+  root.innerHTML = '';
+  // Sorted by open-count desc; cap to 40 so the sidebar isn't a wall.
+  const entries = Array.from(LABEL_META.entries())
+    .filter(([, m]) => m.count > 0)
+    .sort((a, b) => b[1].count - a[1].count);
+  if (entries.length === 0) {
+    root.innerHTML = '<li class="muted">No labels.</li>';
+    return;
+  }
+  for (const [name, m] of entries.slice(0, 40)) {
+    const li = document.createElement('li');
+    const isActive = FILTERS.label === name;
+    const btn = document.createElement('button');
+    btn.className = 'label-row' + (isActive ? ' active' : '');
+    btn.title = `${m.count_issue} issue${m.count_issue === 1 ? '' : 's'} + ${m.count_pr} PR${m.count_pr === 1 ? '' : 's'}`;
+    btn.innerHTML = `
+      <span class="label-dot" style="background:${m.color}"></span>
+      <span class="label-name">${escapeHTML(name)}</span>
+      <span class="module-count">${m.count}</span>
+    `;
+    btn.onclick = () => {
+      FILTERS.label = isActive ? null : name;
+      PAGE.idx = 0;
+      render();
+    };
+    li.appendChild(btn);
+    root.appendChild(li);
+  }
 }
 
 /* ── Table ────────────────────────────────────────────────────── */
@@ -695,6 +752,8 @@ function renderTable (filtered) {
 
 function render () {
   renderSidebar();
+  renderOldest();
+  renderLabels();
   renderFilterBanner();
   const filtered = applyFilters(STATE.issues);
   renderKPIs();
@@ -702,7 +761,6 @@ function render () {
   renderChartPriorityStack(filtered);
   renderChartTrend();
   renderChartAge(filtered);
-  renderOldest();
   renderTable(filtered);
 }
 
@@ -738,8 +796,9 @@ function bindFilters () {
     FILTERS.search = e.target.value; PAGE.idx = 0; render();
   });
   document.getElementById('resetBtn').addEventListener('click', () => {
-    Object.assign(FILTERS, { module: null, submodule: null, type: 'all',
-                             priority: 'all', status: 'open', age: 'all', search: '' });
+    Object.assign(FILTERS, { module: null, submodule: null, label: null,
+                             type: 'all', priority: 'all', status: 'open',
+                             age: 'all', search: '' });
     document.getElementById('search').value = '';
     document.querySelectorAll('.pill-group').forEach(g => {
       const first = g.querySelector('.pill'); pillSelect(g.id, first);
