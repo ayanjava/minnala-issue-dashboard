@@ -708,8 +708,19 @@ function renderChartPriorityStack (filtered) {
     options: {
       responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       scales: {
-        x: { stacked: true, ticks: { color: COLOR.text, font: { family: 'Inter' } }, grid: { color: COLOR.grid } },
-        y: { stacked: true, ticks: { color: COLOR.text, font: { family: 'Inter' } }, grid: { display: false } },
+        x: { stacked: true,
+             ticks: { color: COLOR.text, font: { family: 'Inter' } },
+             grid: { color: COLOR.grid } },
+        y: { stacked: true,
+             ticks: {
+               color: COLOR.text, font: { family: 'Inter' },
+               // Force every module label to render — Chart.js auto-skips
+               // labels when the chart is short, which hid Backend Core /
+               // Testing & QA / Infra & Deploy / Documentation rows.
+               autoSkip: false,
+               maxRotation: 0, minRotation: 0,
+             },
+             grid: { display: false } },
       },
       plugins: { legend: { position: 'bottom',
                            labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } } },
