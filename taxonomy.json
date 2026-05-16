@@ -1,0 +1,301 @@
+{
+  "_doc": "Maps GH labels + title heuristics into module/submodule buckets. First matching rule wins. Order matters — most specific first. Add new modules at the bottom before 'uncategorized'.",
+  "priority_labels": ["p0", "p1", "p2"],
+  "modules": [
+    {
+      "id": "frontend",
+      "label": "Frontend (UI)",
+      "icon": "🎨",
+      "color": "#34d399",
+      "submodules": [
+        {
+          "id": "ui-v2",
+          "label": "V2 Pages",
+          "rules": [
+            {"all": [{"label": "ui"}, {"label": "v1-cutover"}]},
+            {"title_contains": ["V2 ", "/v2/"]},
+            {"label": "v1-cutover"}
+          ]
+        },
+        {
+          "id": "a11y",
+          "label": "Accessibility",
+          "rules": [
+            {"title_contains": ["a11y", "Sonar a11y", "S1082"]}
+          ]
+        },
+        {
+          "id": "design-system",
+          "label": "Design System",
+          "rules": [
+            {"title_contains": ["design system", "design-system", "design tokens"]}
+          ]
+        },
+        {
+          "id": "ui-general",
+          "label": "General UI",
+          "rules": [
+            {"label": "ui"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "backend-core",
+      "label": "Backend Core",
+      "icon": "⚙️",
+      "color": "#60a5fa",
+      "submodules": [
+        {
+          "id": "auth",
+          "label": "Auth & Sessions",
+          "rules": [
+            {"label": "auth"},
+            {"title_contains": ["JWT", "auth", "session", "OAuth", "RLS"]}
+          ]
+        },
+        {
+          "id": "storage",
+          "label": "Storage & Schema",
+          "rules": [
+            {"label": "schema-drift"},
+            {"title_contains": ["alembic", "alpha_", "SQLite", "Postgres", "schema", "migration"]}
+          ]
+        },
+        {
+          "id": "hot-path",
+          "label": "Hot Path",
+          "rules": [
+            {"title_contains": ["hot path", "hot-path", "hotpath", "<10us", "latency"]}
+          ]
+        },
+        {
+          "id": "signal-engine",
+          "label": "Signal Engine",
+          "rules": [
+            {"label": "signal-engine"}
+          ]
+        },
+        {
+          "id": "multi-tenant",
+          "label": "Multi-tenant",
+          "rules": [
+            {"label": "multi-user"},
+            {"title_contains": ["tenant", "Tenant", "multi-user"]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brokers",
+      "label": "Brokers & Streaming",
+      "icon": "📡",
+      "color": "#f59e0b",
+      "submodules": [
+        {
+          "id": "tiger",
+          "label": "Tiger",
+          "rules": [
+            {"title_contains": ["Tiger", "tiger"]}
+          ]
+        },
+        {
+          "id": "ibkr",
+          "label": "IBKR",
+          "rules": [
+            {"title_contains": ["IBKR", "ibkr", "ib_async", "ib_insync", "Interactive Brokers"]}
+          ]
+        },
+        {
+          "id": "moomoo",
+          "label": "Moomoo",
+          "rules": [
+            {"title_contains": ["Moomoo", "moomoo", "MoomooAdapter"]}
+          ]
+        },
+        {
+          "id": "streaming",
+          "label": "Streaming Infra",
+          "rules": [
+            {"label": "streaming"}
+          ]
+        },
+        {
+          "id": "broker-other",
+          "label": "Other Brokers",
+          "rules": [
+            {"label": "broker"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "label": "Testing & QA",
+      "icon": "🧪",
+      "color": "#a78bfa",
+      "submodules": [
+        {
+          "id": "pytest",
+          "label": "Pytest",
+          "rules": [
+            {"title_contains": ["pytest", "Pytest", "pg_writer test", "test_"]}
+          ]
+        },
+        {
+          "id": "vitest",
+          "label": "Vitest",
+          "rules": [
+            {"title_contains": ["Vitest", "vitest"]}
+          ]
+        },
+        {
+          "id": "e2e",
+          "label": "Playwright / E2E",
+          "rules": [
+            {"title_contains": ["Playwright", "playwright", "Cypress", "E2E", "e2e"]}
+          ]
+        },
+        {
+          "id": "coverage",
+          "label": "Coverage",
+          "rules": [
+            {"title_contains": ["coverage", "Coverage"]}
+          ]
+        },
+        {
+          "id": "mutation",
+          "label": "Mutation testing",
+          "rules": [
+            {"title_contains": ["Mutmut", "mutmut", "Cosmic Ray", "cosmic-ray", "Stryker", "mutation testing"]}
+          ]
+        },
+        {
+          "id": "tests-other",
+          "label": "Other tests",
+          "rules": [
+            {"label": "tests"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tech-debt",
+      "label": "Tech Debt & Refactor",
+      "icon": "🧹",
+      "color": "#9ca3af",
+      "submodules": [
+        {
+          "id": "mypy",
+          "label": "mypy (types)",
+          "rules": [
+            {"title_contains": ["mypy", "Mypy", "type errors"]}
+          ]
+        },
+        {
+          "id": "ruff",
+          "label": "ruff (lint)",
+          "rules": [
+            {"title_contains": ["ruff", "Ruff", "lint"]}
+          ]
+        },
+        {
+          "id": "cognitive",
+          "label": "Cognitive complexity",
+          "rules": [
+            {"title_contains": ["cognitive complexity", "S3776", "refactor"]}
+          ]
+        },
+        {
+          "id": "tech-debt-other",
+          "label": "Other tech-debt",
+          "rules": [
+            {"label": "tech-debt"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "label": "Infra & Deploy",
+      "icon": "🚀",
+      "color": "#22d3ee",
+      "submodules": [
+        {
+          "id": "aws",
+          "label": "AWS",
+          "rules": [
+            {"title_contains": ["AWS", "EC2", "RDS", "ElastiCache", "Lambda", "SSM", "CloudWatch", "s3://", "S3"]}
+          ]
+        },
+        {
+          "id": "deploy",
+          "label": "Deploy / CI",
+          "rules": [
+            {"title_contains": ["deploy", "Deploy", "CI ", "workflow", "GH Actions", "GitHub Actions"]}
+          ]
+        },
+        {
+          "id": "training",
+          "label": "GPU / Training",
+          "rules": [
+            {"title_contains": ["GPU", "spot", "AMI", "training", "Train", "retrain"]}
+          ]
+        },
+        {
+          "id": "infra-other",
+          "label": "Other infra",
+          "rules": [
+            {"label": "infra"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "icon": "🔒",
+      "color": "#f87171",
+      "submodules": [
+        {
+          "id": "security-general",
+          "label": "Security",
+          "rules": [
+            {"label": "security"},
+            {"label": "audit"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "docs",
+      "label": "Documentation",
+      "icon": "📚",
+      "color": "#fbbf24",
+      "submodules": [
+        {
+          "id": "docs-general",
+          "label": "Docs",
+          "rules": [
+            {"label": "documentation"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uncategorized",
+      "label": "Uncategorized",
+      "icon": "❓",
+      "color": "#6b7280",
+      "submodules": [
+        {
+          "id": "uncategorized",
+          "label": "Uncategorized",
+          "rules": [
+            {"always": true}
+          ]
+        }
+      ]
+    }
+  ]
+}

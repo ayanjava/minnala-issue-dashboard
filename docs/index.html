@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minnala Issue Dashboard</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
+<!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">📊</span>
+    <span class="brand-text">Minnala Issue Dashboard</span>
+    <span class="repo-link"><a id="repoLink" href="https://github.com/ayanjava/0dte-v2/issues" target="_blank" rel="noopener">ayanjava/0dte-v2 →</a></span>
+  </div>
+  <div class="status">
+    <span id="lastUpdated" class="muted">loading…</span>
+    <button id="refreshBtn" class="btn-icon" title="Reload data (re-fetches the JSON snapshot)">↻</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar: module/submodule tree ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-head">Modules</div>
+      <ul id="moduleTree" class="module-tree">
+        <li class="loading muted">Loading…</li>
+      </ul>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-head">Quick filters</div>
+      <ul class="quick-list">
+        <li><button class="link-btn" data-quick="all">All open</button></li>
+        <li><button class="link-btn" data-quick="p0">🔴 P0 only</button></li>
+        <li><button class="link-btn" data-quick="stale">🕰️ &gt; 90 days</button></li>
+        <li><button class="link-btn" data-quick="recent">✨ Last 7 days</button></li>
+        <li><button class="link-btn" data-quick="uncategorized">❓ Uncategorized</button></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ── Main panel ── -->
+  <main class="main">
+
+    <!-- Filter bar -->
+    <section class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Priority</span>
+        <div class="pill-group" id="filterPriority">
+          <button class="pill active" data-p="all">All</button>
+          <button class="pill p0"  data-p="p0">P0</button>
+          <button class="pill p1"  data-p="p1">P1</button>
+          <button class="pill p2"  data-p="p2">P2</button>
+          <button class="pill none" data-p="none">∅</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Status</span>
+        <div class="pill-group" id="filterStatus">
+          <button class="pill active" data-s="open">Open</button>
+          <button class="pill" data-s="closed">Closed</button>
+          <button class="pill" data-s="all">All</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Age</span>
+        <div class="pill-group" id="filterAge">
+          <button class="pill active" data-a="all">All</button>
+          <button class="pill" data-a="<7">&lt;7d</button>
+          <button class="pill" data-a="7-30">7-30d</button>
+          <button class="pill" data-a="30-90">30-90d</button>
+          <button class="pill" data-a=">90">&gt;90d</button>
+        </div>
+      </div>
+      <div class="filter-group search">
+        <input id="search" type="search" placeholder="Search title or #number…" autocomplete="off">
+      </div>
+      <div class="filter-group reset">
+        <button id="resetBtn" class="btn-ghost">Reset</button>
+      </div>
+    </section>
+
+    <!-- KPI tiles -->
+    <section class="kpis" id="kpis">
+      <div class="kpi"><div class="k-label">Total open</div>      <div class="k-val" id="kpiOpen">—</div></div>
+      <div class="kpi p0"><div class="k-label">P0</div>            <div class="k-val" id="kpiP0">—</div></div>
+      <div class="kpi p1"><div class="k-label">P1</div>            <div class="k-val" id="kpiP1">—</div></div>
+      <div class="kpi p2"><div class="k-label">P2</div>            <div class="k-val" id="kpiP2">—</div></div>
+      <div class="kpi"><div class="k-label">Opened 7d</div>        <div class="k-val" id="kpiOpened7d">—</div></div>
+      <div class="kpi"><div class="k-label">Closed 7d</div>        <div class="k-val" id="kpiClosed7d">—</div></div>
+    </section>
+
+    <!-- Active filter banner -->
+    <section id="filterBanner" class="filter-banner hidden"></section>
+
+    <!-- Charts grid -->
+    <section class="charts">
+      <div class="card chart-card chart-donut">
+        <div class="card-head">Issues by module <span class="muted">(open)</span></div>
+        <div class="chart-wrap"><canvas id="chartModule"></canvas></div>
+      </div>
+      <div class="card chart-card chart-stack">
+        <div class="card-head">Priority breakdown by module <span class="muted">(open)</span></div>
+        <div class="chart-wrap"><canvas id="chartPriorityStack"></canvas></div>
+      </div>
+      <div class="card chart-card chart-trend">
+        <div class="card-head">Open-count trend <span class="muted">(last 90 days)</span></div>
+        <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+      </div>
+      <div class="card chart-card chart-age">
+        <div class="card-head">Age distribution <span class="muted">(open)</span></div>
+        <div class="chart-wrap"><canvas id="chartAge"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Oldest open -->
+    <section class="card">
+      <div class="card-head">🕰️ Oldest open issues</div>
+      <ul id="oldestList" class="oldest-list"></ul>
+    </section>
+
+    <!-- Main issue table -->
+    <section class="card">
+      <div class="card-head">
+        <span id="tableHead">Issues</span>
+        <span class="muted" id="tableCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="issueTable">
+          <thead>
+            <tr>
+              <th data-sort="number" class="num">#</th>
+              <th data-sort="title">Title</th>
+              <th data-sort="module">Module</th>
+              <th data-sort="priority">Pri</th>
+              <th data-sort="age_days" class="num">Age</th>
+              <th data-sort="comments" class="num">💬</th>
+              <th data-sort="state">State</th>
+            </tr>
+          </thead>
+          <tbody id="issueBody"></tbody>
+        </table>
+        <div id="pager" class="pager"></div>
+      </div>
+    </section>
+
+    <footer class="footer muted">
+      Auto-refreshes every 30 min via GitHub Actions.
+      Source: <a href="https://github.com/ayanjava/0dte-v2/issues" target="_blank" rel="noopener">ayanjava/0dte-v2</a>.
+      Click any row to open the issue in a new tab.
+    </footer>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

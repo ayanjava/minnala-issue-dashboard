@@ -1,0 +1,1210 @@
+{
+  "generated_at": "2026-05-16T15:50:21+00:00",
+  "repo": "ayanjava/0dte-v2",
+  "totals": {
+    "total": 1082,
+    "open": 99,
+    "closed": 983,
+    "opened_7d": 134,
+    "closed_7d": 327
+  },
+  "by_priority": {
+    "p2": 52,
+    "p1": 37,
+    "p0": 10
+  },
+  "by_module": {
+    "backend-core": 33,
+    "brokers": 8,
+    "testing": 18,
+    "frontend": 16,
+    "infra": 5,
+    "tech-debt": 14,
+    "uncategorized": 3,
+    "security": 1,
+    "docs": 1
+  },
+  "by_module_priority": {
+    "backend-core": {
+      "p0": 6,
+      "p1": 15,
+      "p2": 12,
+      "none": 0
+    },
+    "brokers": {
+      "p0": 2,
+      "p1": 3,
+      "p2": 3,
+      "none": 0
+    },
+    "testing": {
+      "p0": 0,
+      "p1": 7,
+      "p2": 11,
+      "none": 0
+    },
+    "frontend": {
+      "p0": 1,
+      "p1": 7,
+      "p2": 8,
+      "none": 0
+    },
+    "infra": {
+      "p0": 0,
+      "p1": 1,
+      "p2": 4,
+      "none": 0
+    },
+    "tech-debt": {
+      "p0": 0,
+      "p1": 3,
+      "p2": 11,
+      "none": 0
+    },
+    "uncategorized": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 3,
+      "none": 0
+    },
+    "security": {
+      "p0": 1,
+      "p1": 0,
+      "p2": 0,
+      "none": 0
+    },
+    "docs": {
+      "p0": 0,
+      "p1": 1,
+      "p2": 0,
+      "none": 0
+    }
+  },
+  "age_buckets": {
+    "<7d": 28,
+    "7-30d": 71,
+    "30-90d": 0,
+    ">90d": 0
+  },
+  "oldest_open": [
+    {
+      "number": 331,
+      "title": "[L2 W11] VPIN evaluation",
+      "state": "open",
+      "labels": [
+        "p2",
+        "signal-engine",
+        "task"
+      ],
+      "priority": "p2",
+      "module": "backend-core",
+      "submodule": "signal-engine",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/331",
+      "created_at": "2026-04-18T13:27:28Z",
+      "updated_at": "2026-05-12T20:07:22Z",
+      "closed_at": null,
+      "age_days": 28,
+      "comments": 3
+    },
+    {
+      "number": 328,
+      "title": "[L2 W8] OFI multi-symbol evaluation + kill-switch #2",
+      "state": "open",
+      "labels": [
+        "p2",
+        "signal-engine",
+        "task"
+      ],
+      "priority": "p2",
+      "module": "backend-core",
+      "submodule": "signal-engine",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/328",
+      "created_at": "2026-04-18T13:27:18Z",
+      "updated_at": "2026-05-12T20:07:18Z",
+      "closed_at": null,
+      "age_days": 28,
+      "comments": 2
+    },
+    {
+      "number": 286,
+      "title": "[EPAT #18] No unified hard-veto truth-table (regime \u00d7 vol \u00d7 direction)",
+      "state": "open",
+      "labels": [
+        "p2",
+        "signal-engine",
+        "task"
+      ],
+      "priority": "p2",
+      "module": "backend-core",
+      "submodule": "signal-engine",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/286",
+      "created_at": "2026-04-18T08:11:15Z",
+      "updated_at": "2026-05-12T20:06:16Z",
+      "closed_at": null,
+      "age_days": 28,
+      "comments": 1
+    },
+    {
+      "number": 272,
+      "title": "[Epic] Deprecated library migrations: ib_insync, feedparser, pandas 3, pyarrow 23, yfinance 1",
+      "state": "open",
+      "labels": [
+        "p2",
+        "tech-debt",
+        "task",
+        "epic"
+      ],
+      "priority": "p2",
+      "module": "backend-core",
+      "submodule": "storage",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/272",
+      "created_at": "2026-04-18T05:16:24Z",
+      "updated_at": "2026-05-12T20:06:11Z",
+      "closed_at": null,
+      "age_days": 28,
+      "comments": 3
+    },
+    {
+      "number": 120,
+      "title": "Tiger WebSocket streaming disconnected \u2014 only REST polling on prod",
+      "state": "open",
+      "labels": [
+        "p0",
+        "streaming",
+        "broker"
+      ],
+      "priority": "p0",
+      "module": "brokers",
+      "submodule": "tiger",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/120",
+      "created_at": "2026-04-17T16:13:06Z",
+      "updated_at": "2026-05-12T20:05:33Z",
+      "closed_at": null,
+      "age_days": 28,
+      "comments": 4
+    },
+    {
+      "number": 370,
+      "title": "[EPIC] SYSTEM_MAP v1 remediation \u2014 37 problems + 25 open questions",
+      "state": "open",
+      "labels": [
+        "p1",
+        "tech-debt",
+        "task",
+        "epic",
+        "proved",
+        "proved-test"
+      ],
+      "priority": "p1",
+      "module": "tech-debt",
+      "submodule": "tech-debt-other",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/370",
+      "created_at": "2026-04-19T02:42:28Z",
+      "updated_at": "2026-05-12T20:12:41Z",
+      "closed_at": null,
+      "age_days": 27,
+      "comments": 11
+    },
+    {
+      "number": 520,
+      "title": "[tech-debt/p2] Feature-flag experimental paths \u2014 L2 features + institutional dashboards",
+      "state": "open",
+      "labels": [
+        "p2",
+        "tech-debt",
+        "task",
+        "proved",
+        "proved-src",
+        "proved-test"
+      ],
+      "priority": "p2",
+      "module": "tech-debt",
+      "submodule": "tech-debt-other",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/520",
+      "created_at": "2026-04-20T03:55:20Z",
+      "updated_at": "2026-05-12T20:29:52Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 5
+    },
+    {
+      "number": 517,
+      "title": "[ui/p2] Notification preferences page \u2014 let user choose email / Telegram / dashboard per alert type",
+      "state": "open",
+      "labels": [
+        "p2",
+        "ui",
+        "task",
+        "proved",
+        "proved-src",
+        "proved-test",
+        "proved-ui"
+      ],
+      "priority": "p2",
+      "module": "frontend",
+      "submodule": "ui-general",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/517",
+      "created_at": "2026-04-20T03:54:56Z",
+      "updated_at": "2026-05-12T20:29:43Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 5
+    },
+    {
+      "number": 535,
+      "title": "[infra/p0] Postgres + Redis migration on EC2 \u2014 blocks MU1 (\u03b1-full scope)",
+      "state": "open",
+      "labels": [
+        "p0",
+        "tech-debt",
+        "epic",
+        "proved",
+        "proved-db"
+      ],
+      "priority": "p0",
+      "module": "backend-core",
+      "submodule": "storage",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/535",
+      "created_at": "2026-04-20T06:04:14Z",
+      "updated_at": "2026-05-12T20:13:01Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 6
+    },
+    {
+      "number": 506,
+      "title": "[tech-debt/p2] Composition root split \u2014 five build_*_runtime() functions",
+      "state": "open",
+      "labels": [
+        "p2",
+        "tech-debt",
+        "task",
+        "proved",
+        "proved-src"
+      ],
+      "priority": "p2",
+      "module": "tech-debt",
+      "submodule": "tech-debt-other",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/506",
+      "created_at": "2026-04-20T03:33:47Z",
+      "updated_at": "2026-05-12T20:12:51Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 2
+    },
+    {
+      "number": 554,
+      "title": "[ALPHA-10] lambda_wake.py off-market t3.small \u2192 t3.medium",
+      "state": "open",
+      "labels": [
+        "p2",
+        "task"
+      ],
+      "priority": "p2",
+      "module": "uncategorized",
+      "submodule": "uncategorized",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/554",
+      "created_at": "2026-04-20T10:01:45Z",
+      "updated_at": "2026-05-12T20:09:16Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 2
+    },
+    {
+      "number": 513,
+      "title": "[ops/p2] Production observability \u2014 CloudWatch dashboards + Sentry error tracking",
+      "state": "open",
+      "labels": [
+        "p2",
+        "task"
+      ],
+      "priority": "p2",
+      "module": "infra",
+      "submodule": "aws",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/513",
+      "created_at": "2026-04-20T03:54:04Z",
+      "updated_at": "2026-05-12T20:08:43Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 1
+    },
+    {
+      "number": 509,
+      "title": "[broker/p2] Widen BrokerAdapter Protocol \u2014 user_id, async, modify_order",
+      "state": "open",
+      "labels": [
+        "p2",
+        "broker",
+        "task",
+        "proved-src"
+      ],
+      "priority": "p2",
+      "module": "brokers",
+      "submodule": "broker-other",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/509",
+      "created_at": "2026-04-20T03:34:13Z",
+      "updated_at": "2026-05-12T20:08:39Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 1
+    },
+    {
+      "number": 591,
+      "title": "[epic/p1] Hot-path memory map gaps (HPM-1..12) \u2014 pre-populate Redis + in-proc for <10\u00b5s decisions",
+      "state": "open",
+      "labels": [
+        "p1",
+        "epic",
+        "infra",
+        "proved",
+        "proved-test"
+      ],
+      "priority": "p1",
+      "module": "infra",
+      "submodule": "infra-other",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/591",
+      "created_at": "2026-04-20T16:16:54Z",
+      "updated_at": "2026-05-12T20:13:17Z",
+      "closed_at": null,
+      "age_days": 25,
+      "comments": 4
+    },
+    {
+      "number": 590,
+      "title": "[epic/p1] Phase-1-extended remaining items + \u03b1-full migration execution + open decisions",
+      "state": "open",
+      "labels": [
+        "p1",
+        "epic",
+        "proved",
+        "proved-src"
+      ],
+      "priority": "p1",
+      "module": "backend-core",
+      "submodule": "storage",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/590",
+      "created_at": "2026-04-20T15:55:21Z",
+      "updated_at": "2026-05-12T20:13:11Z",
+      "closed_at": null,
+      "age_days": 25,
+      "comments": 3
+    }
+  ],
+  "trend_90d": [
+    {
+      "date": "2026-02-15",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-16",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-17",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-18",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-19",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-20",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-21",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-22",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-23",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-24",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-25",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-26",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-27",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-02-28",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-01",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-02",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-03",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-04",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-05",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-06",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-07",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-08",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-09",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-10",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-11",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-12",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-13",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-14",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-15",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-16",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-17",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-18",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-19",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-20",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-21",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-22",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-23",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-24",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-25",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-26",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-27",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-28",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-29",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-30",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-03-31",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-01",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-02",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-03",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-04",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-05",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-06",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-07",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-08",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-09",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-10",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-11",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-12",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-13",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-14",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-15",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-16",
+      "open": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-04-17",
+      "open": 37,
+      "opened": 87,
+      "closed": 50
+    },
+    {
+      "date": "2026-04-18",
+      "open": 84,
+      "opened": 95,
+      "closed": 48
+    },
+    {
+      "date": "2026-04-19",
+      "open": 77,
+      "opened": 31,
+      "closed": 38
+    },
+    {
+      "date": "2026-04-20",
+      "open": 162,
+      "opened": 106,
+      "closed": 21
+    },
+    {
+      "date": "2026-04-21",
+      "open": 177,
+      "opened": 23,
+      "closed": 8
+    },
+    {
+      "date": "2026-04-22",
+      "open": 185,
+      "opened": 39,
+      "closed": 31
+    },
+    {
+      "date": "2026-04-23",
+      "open": 181,
+      "opened": 32,
+      "closed": 36
+    },
+    {
+      "date": "2026-04-24",
+      "open": 269,
+      "opened": 116,
+      "closed": 28
+    },
+    {
+      "date": "2026-04-25",
+      "open": 295,
+      "opened": 67,
+      "closed": 41
+    },
+    {
+      "date": "2026-04-26",
+      "open": 172,
+      "opened": 40,
+      "closed": 163
+    },
+    {
+      "date": "2026-04-27",
+      "open": 195,
+      "opened": 48,
+      "closed": 25
+    },
+    {
+      "date": "2026-04-28",
+      "open": 227,
+      "opened": 45,
+      "closed": 13
+    },
+    {
+      "date": "2026-04-29",
+      "open": 260,
+      "opened": 34,
+      "closed": 1
+    },
+    {
+      "date": "2026-04-30",
+      "open": 296,
+      "opened": 36,
+      "closed": 0
+    },
+    {
+      "date": "2026-05-01",
+      "open": 309,
+      "opened": 13,
+      "closed": 0
+    },
+    {
+      "date": "2026-05-02",
+      "open": 335,
+      "opened": 26,
+      "closed": 0
+    },
+    {
+      "date": "2026-05-03",
+      "open": 303,
+      "opened": 10,
+      "closed": 42
+    },
+    {
+      "date": "2026-05-04",
+      "open": 298,
+      "opened": 23,
+      "closed": 28
+    },
+    {
+      "date": "2026-05-05",
+      "open": 281,
+      "opened": 6,
+      "closed": 23
+    },
+    {
+      "date": "2026-05-06",
+      "open": 305,
+      "opened": 34,
+      "closed": 10
+    },
+    {
+      "date": "2026-05-07",
+      "open": 305,
+      "opened": 0,
+      "closed": 0
+    },
+    {
+      "date": "2026-05-08",
+      "open": 306,
+      "opened": 11,
+      "closed": 10
+    },
+    {
+      "date": "2026-05-09",
+      "open": 297,
+      "opened": 37,
+      "closed": 46
+    },
+    {
+      "date": "2026-05-10",
+      "open": 300,
+      "opened": 11,
+      "closed": 8
+    },
+    {
+      "date": "2026-05-11",
+      "open": 300,
+      "opened": 11,
+      "closed": 11
+    },
+    {
+      "date": "2026-05-12",
+      "open": 202,
+      "opened": 7,
+      "closed": 105
+    },
+    {
+      "date": "2026-05-13",
+      "open": 147,
+      "opened": 36,
+      "closed": 91
+    },
+    {
+      "date": "2026-05-14",
+      "open": 143,
+      "opened": 39,
+      "closed": 43
+    },
+    {
+      "date": "2026-05-15",
+      "open": 140,
+      "opened": 18,
+      "closed": 21
+    },
+    {
+      "date": "2026-05-16",
+      "open": 99,
+      "opened": 1,
+      "closed": 42
+    }
+  ],
+  "modules": [
+    {
+      "id": "frontend",
+      "label": "Frontend (UI)",
+      "icon": "\ud83c\udfa8",
+      "color": "#34d399",
+      "open": 16,
+      "submodules": [
+        {
+          "id": "ui-v2",
+          "label": "V2 Pages",
+          "open": 7,
+          "closed": 41
+        },
+        {
+          "id": "a11y",
+          "label": "Accessibility",
+          "open": 1,
+          "closed": 3
+        },
+        {
+          "id": "design-system",
+          "label": "Design System",
+          "open": 0,
+          "closed": 1
+        },
+        {
+          "id": "ui-general",
+          "label": "General UI",
+          "open": 8,
+          "closed": 165
+        }
+      ]
+    },
+    {
+      "id": "backend-core",
+      "label": "Backend Core",
+      "icon": "\u2699\ufe0f",
+      "color": "#60a5fa",
+      "open": 33,
+      "submodules": [
+        {
+          "id": "auth",
+          "label": "Auth & Sessions",
+          "open": 6,
+          "closed": 78
+        },
+        {
+          "id": "storage",
+          "label": "Storage & Schema",
+          "open": 9,
+          "closed": 91
+        },
+        {
+          "id": "hot-path",
+          "label": "Hot Path",
+          "open": 1,
+          "closed": 26
+        },
+        {
+          "id": "signal-engine",
+          "label": "Signal Engine",
+          "open": 14,
+          "closed": 132
+        },
+        {
+          "id": "multi-tenant",
+          "label": "Multi-tenant",
+          "open": 3,
+          "closed": 22
+        }
+      ]
+    },
+    {
+      "id": "brokers",
+      "label": "Brokers & Streaming",
+      "icon": "\ud83d\udce1",
+      "color": "#f59e0b",
+      "open": 8,
+      "submodules": [
+        {
+          "id": "tiger",
+          "label": "Tiger",
+          "open": 5,
+          "closed": 21
+        },
+        {
+          "id": "ibkr",
+          "label": "IBKR",
+          "open": 0,
+          "closed": 6
+        },
+        {
+          "id": "moomoo",
+          "label": "Moomoo",
+          "open": 0,
+          "closed": 4
+        },
+        {
+          "id": "streaming",
+          "label": "Streaming Infra",
+          "open": 1,
+          "closed": 15
+        },
+        {
+          "id": "broker-other",
+          "label": "Other Brokers",
+          "open": 2,
+          "closed": 21
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "label": "Testing & QA",
+      "icon": "\ud83e\uddea",
+      "color": "#a78bfa",
+      "open": 18,
+      "submodules": [
+        {
+          "id": "pytest",
+          "label": "Pytest",
+          "open": 3,
+          "closed": 22
+        },
+        {
+          "id": "vitest",
+          "label": "Vitest",
+          "open": 1,
+          "closed": 1
+        },
+        {
+          "id": "e2e",
+          "label": "Playwright / E2E",
+          "open": 2,
+          "closed": 0
+        },
+        {
+          "id": "coverage",
+          "label": "Coverage",
+          "open": 3,
+          "closed": 11
+        },
+        {
+          "id": "mutation",
+          "label": "Mutation testing",
+          "open": 2,
+          "closed": 0
+        },
+        {
+          "id": "tests-other",
+          "label": "Other tests",
+          "open": 7,
+          "closed": 48
+        }
+      ]
+    },
+    {
+      "id": "tech-debt",
+      "label": "Tech Debt & Refactor",
+      "icon": "\ud83e\uddf9",
+      "color": "#9ca3af",
+      "open": 14,
+      "submodules": [
+        {
+          "id": "mypy",
+          "label": "mypy (types)",
+          "open": 1,
+          "closed": 0
+        },
+        {
+          "id": "ruff",
+          "label": "ruff (lint)",
+          "open": 1,
+          "closed": 2
+        },
+        {
+          "id": "cognitive",
+          "label": "Cognitive complexity",
+          "open": 1,
+          "closed": 3
+        },
+        {
+          "id": "tech-debt-other",
+          "label": "Other tech-debt",
+          "open": 11,
+          "closed": 120
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "label": "Infra & Deploy",
+      "icon": "\ud83d\ude80",
+      "color": "#22d3ee",
+      "open": 5,
+      "submodules": [
+        {
+          "id": "aws",
+          "label": "AWS",
+          "open": 2,
+          "closed": 16
+        },
+        {
+          "id": "deploy",
+          "label": "Deploy / CI",
+          "open": 1,
+          "closed": 9
+        },
+        {
+          "id": "training",
+          "label": "GPU / Training",
+          "open": 0,
+          "closed": 4
+        },
+        {
+          "id": "infra-other",
+          "label": "Other infra",
+          "open": 2,
+          "closed": 8
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "icon": "\ud83d\udd12",
+      "color": "#f87171",
+      "open": 1,
+      "submodules": [
+        {
+          "id": "security-general",
+          "label": "Security",
+          "open": 1,
+          "closed": 24
+        }
+      ]
+    },
+    {
+      "id": "docs",
+      "label": "Documentation",
+      "icon": "\ud83d\udcda",
+      "color": "#fbbf24",
+      "open": 1,
+      "submodules": [
+        {
+          "id": "docs-general",
+          "label": "Docs",
+          "open": 1,
+          "closed": 17
+        }
+      ]
+    },
+    {
+      "id": "uncategorized",
+      "label": "Uncategorized",
+      "icon": "\u2753",
+      "color": "#6b7280",
+      "open": 3,
+      "submodules": [
+        {
+          "id": "uncategorized",
+          "label": "Uncategorized",
+          "open": 3,
+          "closed": 72
+        }
+      ]
+    }
+  ]
+}

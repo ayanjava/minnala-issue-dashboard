@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+
+# Raw API blob — large + regenerated every run. Slim issues.json + stats.json
+# are the only data artifacts we want versioned.
+docs/data/issues.raw.json
+
+# Editor / local-only.
+.vscode/
+.idea/
+.claude/
+
+# OS junk.
+Thumbs.db
