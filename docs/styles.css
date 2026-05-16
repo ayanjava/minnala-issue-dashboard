@@ -136,9 +136,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 /* ── Layout ─────────────────────────────────────────────────── */
 .layout {
   display: grid;
-  grid-template-columns: 264px 1fr;
+  grid-template-columns: 264px minmax(0, 1fr);   /* minmax(0,1fr) prevents wide children from pushing horizontal scroll */
   min-height: calc(100vh - 52px);
 }
+.main { min-width: 0; overflow-x: hidden; }     /* defensive: clip anything that still tries to bust out */
 .sidebar {
   background: var(--color-bg-sunken);
   border-right: 1px solid var(--color-border-faint);
@@ -365,10 +366,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .charts {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
+.chart-card { min-width: 0; }                  /* let chart canvas shrink with column */
 .chart-card .chart-wrap {
   padding: var(--space-2) var(--space-4) var(--space-3);
   height: 220px;
@@ -472,7 +474,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 /* Table */
-.table-wrap { overflow-x: auto; }
+.table-wrap {
+  overflow-x: auto;
+  max-width: 100%;     /* defensive: never widen the parent card */
+}
 #issueTable {
   width: 100%;
   border-collapse: collapse;
@@ -793,10 +798,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 .board {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
   align-items: start;
 }
+.board-col { min-width: 0; }
 .board-col {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
@@ -858,7 +864,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-size: 11px;
 }
 .bc-spacer { flex: 1; }
-.bc-title { font-size: 13px; color: var(--color-text); line-height: 1.4; }
+.bc-title {
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.4;
+  /* Long titles wrap inside the card instead of pushing the column wider. */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .bc-foot { display: flex; align-items: center; gap: var(--space-2); font-size: 11px; }
 .bc-mod { font-size: 14px; }
 

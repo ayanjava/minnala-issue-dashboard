@@ -577,8 +577,12 @@ function renderSidebar () {
 
 /* ── Filtering ────────────────────────────────────────────────── */
 
-function applyFilters (issues) {
+function applyFilters (issues, opts = {}) {
+  // opts.skipStatus: ignore the global Status pill (Open/Merged/Closed/All).
+  // Used by the Kanban board — the column IS the state, so the global
+  // filter shouldn't hide the Done column when Open is selected.
   const q = FILTERS.search.trim().toLowerCase();
+  const skipStatus = !!opts.skipStatus;
   return issues.filter(i => {
     if (FILTERS.module    && i.module    !== FILTERS.module)    return false;
     if (FILTERS.submodule && i.submodule !== FILTERS.submodule) return false;
@@ -590,7 +594,7 @@ function applyFilters (issues) {
       const p = i.priority || 'none';
       if (p !== FILTERS.priority) return false;
     }
-    if (FILTERS.status !== 'all') {
+    if (!skipStatus && FILTERS.status !== 'all') {
       if (FILTERS.status === 'merged' && i.state !== 'merged') return false;
       if (FILTERS.status === 'open'   && i.state !== 'open')   return false;
       if (FILTERS.status === 'closed' && i.state !== 'closed' && i.state !== 'merged') return false;
@@ -1145,9 +1149,11 @@ async function renderActiveView () {
    ═══════════════════════════════════════════════════════════════ */
 
 function renderBoard () {
-  // Honors global PRIORITY / STATUS / AGE / Module filters + the
-  // surface filter unique to the Board view.
-  const filtered = applyFilters(STATE.issues).filter(i =>
+  // Honors PRIORITY / AGE / Module / search filters + the surface
+  // filter unique to the Board view. Status filter is intentionally
+  // skipped — the four columns ARE the states (Done = closed), so
+  // applying the default 'Open' filter would empty the Done column.
+  const filtered = applyFilters(STATE.issues, { skipStatus: true }).filter(i =>
     FILTERS.surface === 'all' ? true : i.surface === FILTERS.surface
   );
   const buckets = { todo: [], inprogress: [], inreview: [], done: [] };
