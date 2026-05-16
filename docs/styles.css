@@ -266,17 +266,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--color-text);
 }
 
-/* KPI tiles — compact one-line strip. Each tile is just label + value
- * inline; 8 tiles fit a 1200px viewport without wrap. Below 900px
- * they wrap into 4 columns, then 2 on phone-width. */
+/* KPI tiles — compact one-line strip. minmax(0,1fr) lets each tile
+ * shrink below its content min-width so the grid never overflows
+ * horizontally (root cause of the 100%-zoom horizontal scrollbar). */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
 .kpis-type {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: var(--space-3);
 }
 .kpi {
@@ -287,6 +287,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
+  overflow: hidden;
 }
 .kpi .k-label {
   font-size: 10px;
@@ -298,6 +299,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.kpi .k-label.icon-only {
+  font-size: 16px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-text-mid);
+}
+.kpi[title] { cursor: help; }
 .kpi .k-val {
   font-size: 18px;
   font-weight: 600;
@@ -309,13 +317,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .kpi.p1 .k-val { color: var(--color-alert); }
 .kpi.p2 .k-val { color: var(--color-blue);  }
 
-/* Wrap at narrow viewports */
-@media (max-width: 1200px) {
-  .kpis { grid-template-columns: repeat(4, 1fr); }
+/* Wrap at narrow viewports. After the sidebar (264px) the main area
+ * gets viewport-264px. 8 small tiles need ~1100px of main area, so
+ * wrap to 4 at 1400 and 2 at 800. */
+@media (max-width: 1400px) {
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-@media (max-width: 680px) {
-  .kpis { grid-template-columns: repeat(2, 1fr); }
-  .kpis-type { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 800px) {
+  .kpis      { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis-type { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Cards + charts */
@@ -349,42 +359,60 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .charts { grid-template-columns: 1fr; }
 }
 
-/* Sidebar: oldest-open list (moved from main panel) */
-.sidebar-oldest {
-  list-style: none; margin: 0; padding: 0;
+/* Main-panel oldest-open card (paired with Age distribution) */
+.oldest-list {
+  list-style: none; margin: 0; padding: var(--space-1) 0;
+  max-height: 260px; overflow-y: auto;
 }
-.sidebar-oldest li {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
+.oldest-list li {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-faint);
   cursor: pointer;
   transition: background 120ms;
   font-size: 12px;
 }
-.sidebar-oldest li:hover { background: var(--color-bg-hover); }
-.sidebar-oldest .o-num {
+.oldest-list li:last-child { border-bottom: none; }
+.oldest-list li:hover { background: var(--color-bg-hover); }
+.oldest-list .o-num {
   color: var(--color-text-dim);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: 11px;
   flex-shrink: 0;
-  width: 42px;
+  width: 56px;
 }
-.sidebar-oldest .o-title {
+.oldest-list .o-title {
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--color-text-mid);
 }
-.sidebar-oldest .o-age {
+.oldest-list .o-age {
   color: var(--color-alert);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-weight: 600;
   flex-shrink: 0;
 }
+.chart-card.chart-oldest .chart-wrap { display: none; }   /* no canvas inside */
+
+/* Sidebar Labels search box */
+.label-search {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: 0 0 var(--space-2) 0;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+.label-search:focus { outline: none; border-color: var(--color-accent); }
+.label-search::placeholder { color: var(--color-text-dim); }
 
 /* Sidebar: auto-discovered labels list */
 .sidebar-sub-hint {

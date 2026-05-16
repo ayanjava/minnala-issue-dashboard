@@ -70,20 +70,17 @@
       </ul>
     </div>
 
-    <!-- Oldest open items (moved from main panel) -->
-    <div class="sidebar-section">
-      <div class="sidebar-head">🕰️ Oldest open</div>
-      <ul id="oldestList" class="sidebar-oldest"></ul>
-    </div>
-
     <!-- Auto-discovered labels: every unique label on every open record,
-         sorted by count desc. New labels (e.g. ml-models, dl, drift)
-         appear here automatically without taxonomy edits. -->
+         sorted by count desc. New labels appear here automatically.
+         The search box filters the list as you type so long backlogs
+         don't force a full scroll. -->
     <div class="sidebar-section">
       <div class="sidebar-head">
         Labels
         <span class="muted sidebar-sub-hint">auto · click to filter</span>
       </div>
+      <input id="labelSearch" class="label-search" type="search"
+             placeholder="filter labels…" autocomplete="off">
       <ul id="labelList" class="label-list"></ul>
     </div>
 
@@ -150,16 +147,18 @@
          ═══════════════════════════════════════════════════════════ -->
     <div class="view" id="view-dashboard">
 
-      <!-- KPI tiles -->
+      <!-- KPI tiles. The three time-window tiles (last-7-day deltas)
+           use icon-only labels with hover tooltips so they never
+           truncate to '...' on narrow viewports. -->
       <section class="kpis" id="kpis">
-        <div class="kpi"><div class="k-label">Open issues</div>     <div class="k-val" id="kpiOpenIssues">—</div></div>
-        <div class="kpi"><div class="k-label">Open PRs</div>        <div class="k-val" id="kpiOpenPRs">—</div></div>
-        <div class="kpi p0"><div class="k-label">P0</div>           <div class="k-val" id="kpiP0">—</div></div>
-        <div class="kpi p1"><div class="k-label">P1</div>           <div class="k-val" id="kpiP1">—</div></div>
-        <div class="kpi p2"><div class="k-label">P2</div>           <div class="k-val" id="kpiP2">—</div></div>
-        <div class="kpi"><div class="k-label">Opened 7d</div>       <div class="k-val" id="kpiOpened7d">—</div></div>
-        <div class="kpi"><div class="k-label">Closed 7d</div>       <div class="k-val" id="kpiClosed7d">—</div></div>
-        <div class="kpi"><div class="k-label">Merged 7d</div>       <div class="k-val" id="kpiMerged7d">—</div></div>
+        <div class="kpi" title="Open issues"><div class="k-label">Open issues</div>     <div class="k-val" id="kpiOpenIssues">—</div></div>
+        <div class="kpi" title="Open pull requests"><div class="k-label">Open PRs</div> <div class="k-val" id="kpiOpenPRs">—</div></div>
+        <div class="kpi p0" title="P0 — broken user flow / security risk"><div class="k-label">P0</div> <div class="k-val" id="kpiP0">—</div></div>
+        <div class="kpi p1" title="P1 — degraded / silent failure"><div class="k-label">P1</div>        <div class="k-val" id="kpiP1">—</div></div>
+        <div class="kpi p2" title="P2 — hygiene / tech-debt"><div class="k-label">P2</div>              <div class="k-val" id="kpiP2">—</div></div>
+        <div class="kpi" title="Opened in last 7 days"><div class="k-label icon-only">🆕</div>          <div class="k-val" id="kpiOpened7d">—</div></div>
+        <div class="kpi" title="Closed in last 7 days"><div class="k-label icon-only">✅</div>           <div class="k-val" id="kpiClosed7d">—</div></div>
+        <div class="kpi" title="Merged in last 7 days"><div class="k-label icon-only">🔀</div>           <div class="k-val" id="kpiMerged7d">—</div></div>
       </section>
 
       <!-- Type breakdown tiles. Each is a click-to-filter chip — click
@@ -193,6 +192,10 @@
         <div class="card chart-card chart-age">
           <div class="card-head">Age distribution <span class="muted">(open)</span></div>
           <div class="chart-wrap"><canvas id="chartAge"></canvas></div>
+        </div>
+        <div class="card chart-card chart-oldest">
+          <div class="card-head">🕰️ Oldest open <span class="muted">(top 10)</span></div>
+          <ul id="oldestList" class="oldest-list"></ul>
         </div>
       </section>
 

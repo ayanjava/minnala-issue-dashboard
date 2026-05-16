@@ -784,12 +784,16 @@ function renderOldest () {
 function renderLabels () {
   const root = document.getElementById('labelList');
   root.innerHTML = '';
-  // Sorted by open-count desc; cap to 40 so the sidebar isn't a wall.
+  // Sorted by open-count desc. Search input narrows the rendered list
+  // (substring match on label name). Cap to 40 visible after search.
+  const q = (document.getElementById('labelSearch')?.value || '').trim().toLowerCase();
   const entries = Array.from(LABEL_META.entries())
-    .filter(([, m]) => m.count > 0)
+    .filter(([name, m]) => m.count > 0 && (q === '' || name.toLowerCase().includes(q)))
     .sort((a, b) => b[1].count - a[1].count);
   if (entries.length === 0) {
-    root.innerHTML = '<li class="muted">No labels.</li>';
+    root.innerHTML = q
+      ? `<li class="muted small" style="padding:var(--space-1) var(--space-3)">No labels match "${escapeHTML(q)}".</li>`
+      : '<li class="muted">No labels.</li>';
     return;
   }
   for (const [name, m] of entries.slice(0, 40)) {
@@ -1727,6 +1731,8 @@ function bindAssignedToMe () {
   bindFilters();
   bindSettings();
   bindNewSidebar();
+  // Sidebar label search — incremental filter on the rendered list only.
+  document.getElementById('labelSearch')?.addEventListener('input', () => renderLabels());
   bindBoardSurface();
   bindAssignedToMe();
   bindTypeTiles();
