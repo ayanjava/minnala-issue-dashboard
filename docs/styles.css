@@ -288,8 +288,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .kpis {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: 6px;
+  margin-bottom: 6px;
 }
 .kpis-type {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -298,13 +298,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .kpi {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-1);
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
-  min-height: 36px;
+  min-height: 28px;
 }
 .kpi .k-label {
   font-size: 10px;
@@ -324,13 +324,14 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 .kpi[title] { cursor: help; }
 .kpi .k-val {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   line-height: 1;
 }
-.kpi .k-label.icon-only { font-size: 14px; }
+.kpi .k-label { font-size: 9px; }
+.kpi .k-label.icon-only { font-size: 12px; }
 .kpi.p0 .k-val { color: var(--color-loss);  }
 .kpi.p1 .k-val { color: var(--color-alert); }
 .kpi.p2 .k-val { color: var(--color-blue);  }
@@ -365,13 +366,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .charts {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 .chart-card .chart-wrap {
   padding: var(--space-2) var(--space-4) var(--space-3);
-  height: 280px;
+  height: 220px;
 }
+.card { margin-bottom: var(--space-2); }
+.card-head { padding: 8px var(--space-4); font-size: 12px; }
 
 @media (max-width: 1100px) {
   .charts { grid-template-columns: 1fr; }
