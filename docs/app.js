@@ -145,8 +145,35 @@ function ruleMatches (rule, item, labelSet) {
 }
 
 function classifyOne (item, taxonomy) {
-  const labelSet = new Set((item.labels || []).map(l => l.name.toLowerCase()));
+  const labels = (item.labels || []).map(l => l.name.toLowerCase());
+  const labelSet = new Set(labels);
+
+  // ── Explicit auto-tag fast path ─────────────────────────────
+  // The "+ New issue" form attaches `module:<id>` + `submodule:<id>`
+  // labels per the picker. If both are present AND the IDs exist in
+  // taxonomy, classification is direct — no rule walk, no
+  // misclassification when the title doesn't include a keyword.
+  const modTag = labels.find(l => l.startsWith('module:'));
+  const subTag = labels.find(l => l.startsWith('submodule:'));
+  if (modTag && subTag) {
+    const modId = modTag.slice(7);
+    const subId = subTag.slice(10);
+    const mod = taxonomy.modules.find(m => m.id === modId);
+    if (mod && (mod.submodules || []).some(s => s.id === subId)) {
+      return { module: modId, submodule: subId };
+    }
+  }
+  // Module-only tag: bucket by module, leave submodule to rule walk
+  // (or fall back to the first submodule if nothing matches).
+  let forcedModule = null;
+  if (modTag) {
+    const modId = modTag.slice(7);
+    if (taxonomy.modules.find(m => m.id === modId)) forcedModule = modId;
+  }
+
+  // ── Rule walk (existing path) ───────────────────────────────
   for (const m of taxonomy.modules) {
+    if (forcedModule && m.id !== forcedModule) continue;
     for (const s of (m.submodules || [])) {
       for (const r of (s.rules || [])) {
         if (ruleMatches(r, item, labelSet)) {
@@ -154,6 +181,12 @@ function classifyOne (item, taxonomy) {
         }
       }
     }
+  }
+  // Module forced but no submodule matched → put in first submodule.
+  if (forcedModule) {
+    const mod = taxonomy.modules.find(m => m.id === forcedModule);
+    const firstSub = mod?.submodules?.[0]?.id || 'uncategorized';
+    return { module: forcedModule, submodule: firstSub };
   }
   return { module: 'uncategorized', submodule: 'uncategorized' };
 }
@@ -1328,13 +1361,29 @@ async function renderCommitsView () {
 
 const NI_STATE = {
   surface: 'ui', type: 'bug', priority: 'p1',
-  module: '', assignees: new Set(),
+  module: '',           // taxonomy module id, e.g. 'frontend'
+  submodule: '',        // taxonomy submodule id, e.g. 'ui-v2'
+  assignees: new Set(),
 };
 
 async function renderNewIssueForm () {
   // Reset success state on every view entry.
   document.getElementById('newIssueForm').classList.remove('hidden');
   document.getElementById('newSuccess').classList.add('hidden');
+
+  // Populate Module dropdown from taxonomy.
+  const modSel = document.getElementById('niModuleSelect');
+  if (modSel.options.length <= 1 && STATE.taxonomy) {
+    for (const m of STATE.taxonomy.modules) {
+      if (m.id === 'uncategorized') continue;
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${m.icon || ''} ${m.label}`.trim();
+      modSel.appendChild(opt);
+    }
+  }
+  // If a module was already selected, keep its submodule list populated.
+  populateSubmoduleSelect(NI_STATE.module);
 
   // Lazy-load assignee suggestions.
   const aBox = document.getElementById('niAssignees');
@@ -1366,12 +1415,15 @@ async function renderNewIssueForm () {
 
 function composeNiLabels () {
   const labels = [];
-  if (NI_STATE.surface === 'both')    labels.push('ui', 'backend');
-  else if (NI_STATE.surface)          labels.push(NI_STATE.surface === 'ui' ? 'ui' : NI_STATE.surface === 'backend' ? 'backend' : NI_STATE.surface);
+  if (NI_STATE.surface === 'both') labels.push('ui', 'backend');
+  else if (NI_STATE.surface)       labels.push(NI_STATE.surface);
   labels.push(NI_STATE.type);
   labels.push(NI_STATE.priority);
-  const m = (NI_STATE.module || '').trim();
-  if (m) labels.push(`module:${m}`);
+  // Module + submodule auto-tags. The classifier short-circuits on
+  // these (see classifyOne) so the new issue immediately lands in
+  // the right sidebar bucket without taxonomy rule edits.
+  if (NI_STATE.module)    labels.push(`module:${NI_STATE.module}`);
+  if (NI_STATE.submodule) labels.push(`submodule:${NI_STATE.submodule}`);
   return labels;
 }
 
@@ -1379,6 +1431,28 @@ function refreshNiPreview () {
   const labels = composeNiLabels();
   document.getElementById('niPreview').innerHTML = labels.map(l =>
     `<span class="t-kind issue">${escapeHTML(l)}</span>`).join(' ');
+}
+
+function populateSubmoduleSelect (moduleId) {
+  const sel = document.getElementById('niSubmoduleSelect');
+  sel.innerHTML = '<option value="">— pick a submodule —</option>';
+  if (!moduleId || !STATE.taxonomy) {
+    sel.disabled = true;
+    return;
+  }
+  const mod = STATE.taxonomy.modules.find(m => m.id === moduleId);
+  if (!mod || !mod.submodules?.length) {
+    sel.disabled = true;
+    return;
+  }
+  for (const s of mod.submodules) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.label;
+    if (s.id === NI_STATE.submodule) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.disabled = false;
 }
 
 function bindNewIssueForm () {
@@ -1394,8 +1468,15 @@ function bindNewIssueForm () {
   wire('niSurface', 'surface');
   wire('niType', 'type');
   wire('niPriority', 'priority');
-  document.getElementById('niModule').addEventListener('input', e => {
-    NI_STATE.module = e.target.value; refreshNiPreview();
+  document.getElementById('niModuleSelect').addEventListener('change', e => {
+    NI_STATE.module = e.target.value;
+    NI_STATE.submodule = '';        // reset cascade
+    populateSubmoduleSelect(NI_STATE.module);
+    refreshNiPreview();
+  });
+  document.getElementById('niSubmoduleSelect').addEventListener('change', e => {
+    NI_STATE.submodule = e.target.value;
+    refreshNiPreview();
   });
   document.getElementById('niCreate').addEventListener('click', async () => {
     const title = document.getElementById('niTitle').value.trim();
@@ -1423,8 +1504,10 @@ function bindNewIssueForm () {
       document.getElementById('niAnother').onclick = () => {
         document.getElementById('niTitle').value = '';
         document.getElementById('niBody').value = '';
-        document.getElementById('niModule').value = '';
         NI_STATE.module = '';
+        NI_STATE.submodule = '';
+        document.getElementById('niModuleSelect').value = '';
+        populateSubmoduleSelect('');
         renderNewIssueForm();
       };
       // Refresh dashboard data so the new issue shows up next time.

@@ -348,10 +348,18 @@
               </div>
             </div>
             <div class="chip-section">
-              <label class="field-label">Module (free-text)</label>
-              <input id="niModule" type="text" placeholder="e.g. streaming, signal-engine"
-                     autocomplete="off">
-              <div class="muted small">Becomes label <code>module:&lt;value&gt;</code>.</div>
+              <label class="field-label">Module</label>
+              <select id="niModuleSelect" class="select-pill">
+                <option value="">— pick a module —</option>
+              </select>
+              <label class="field-label" style="margin-top:var(--space-2);">Submodule</label>
+              <select id="niSubmoduleSelect" class="select-pill" disabled>
+                <option value="">— pick a submodule —</option>
+              </select>
+              <div class="muted small">
+                Auto-adds <code>module:&lt;id&gt;</code> + <code>submodule:&lt;id&gt;</code>
+                labels so the issue lands in this menu/submenu immediately.
+              </div>
             </div>
             <div class="chip-section">
               <label class="field-label">Assignees</label>
