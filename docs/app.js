@@ -1051,7 +1051,9 @@ async function ghGet (path, params = {}) {
   return r.json();
 }
 
-async function ghPost (path, body) {
+async function ghPost (path, body) { return ghBodyRequest('POST', path, body); }
+async function ghPatch (path, body) { return ghBodyRequest('PATCH', path, body); }
+async function ghBodyRequest (method, path, body) {
   const headers = {
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
@@ -1060,7 +1062,7 @@ async function ghPost (path, body) {
   const tok = getPAT();
   if (tok) headers['Authorization'] = `Bearer ${tok}`;
   const r = await fetch(`https://api.github.com${path}`, {
-    method: 'POST', headers, body: JSON.stringify(body),
+    method, headers, body: JSON.stringify(body),
   });
   if (!r.ok) {
     const txt = await r.text();
@@ -1174,6 +1176,8 @@ function renderBoard () {
 function boardCard (i) {
   const card = document.createElement('div');
   card.className = 'board-card' + (i.is_pr ? ' is-pr' : '');
+  card.draggable = !i.is_pr;          // PRs aren't movable via labels (state managed on GH side)
+  card.dataset.issueNumber = i.number;
   const pri = i.priority || 'none';
   const updatedAgo = fmtRelative(i.updated_at);
   const avatarHTML = renderAvatarStack(i.assignees, 2);
@@ -1192,9 +1196,74 @@ function boardCard (i) {
       <span class="muted">updated ${updatedAgo}</span>
     </div>
   `;
+  // Drag-to-move support (issues only). PRs left alone.
+  if (card.draggable) {
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', String(i.number));
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  }
   // Click body opens drawer; the ↗ link opens GH directly.
-  card.onclick = () => openDrawer(i.number);
+  card.onclick = (e) => {
+    if (card.classList.contains('dragging')) return;   // ignore residual click after drag
+    openDrawer(i.number);
+  };
   return card;
+}
+
+/* ── Drag-and-drop: stage labels + close on Done ─────────────────
+ * Maps the four kanban columns to label / state changes:
+ *   todo       → strip in-progress|wip|doing + review|qa|ready-for-review
+ *   inprogress → add 'in-progress', strip review labels
+ *   inreview   → add 'review',      strip in-progress labels
+ *   done       → state=closed (GH auto-closes; labels untouched)
+ * Then PATCH /repos/.../issues/N to apply atomically.
+ */
+const STAGE_LABELS = {
+  inprogress: ['in-progress', 'wip', 'doing'],
+  inreview:   ['review', 'qa', 'ready-for-review'],
+};
+const ALL_STAGE_LABELS = [...STAGE_LABELS.inprogress, ...STAGE_LABELS.inreview];
+
+async function moveIssueToStage (num, newStage) {
+  const issue = STATE.issues.find(i => i.number === num);
+  if (!issue) return;
+  if (issue.stage === newStage) return;
+
+  // Build target label set + state.
+  const labels = new Set((issue.labels || []).filter(l => !ALL_STAGE_LABELS.includes(l.toLowerCase())));
+  let state = 'open';
+  if (newStage === 'inprogress') labels.add('in-progress');
+  else if (newStage === 'inreview') labels.add('review');
+  else if (newStage === 'done')   state = 'closed';
+  else /* todo */                  state = 'open';
+
+  // Optimistic UI update — flips immediately while the PATCH flies.
+  const prev = { labels: [...issue.labels], state: issue.state, stage: issue.stage };
+  issue.labels = Array.from(labels);
+  issue.state = state;
+  issue.stage = newStage;
+  renderBoard();
+
+  try {
+    await ghPatch(`/repos/${REPO}/issues/${num}`, {
+      labels: Array.from(labels),
+      state,
+    });
+  } catch (e) {
+    // Rollback if the API rejects (e.g. PAT missing Issues:Write).
+    issue.labels = prev.labels;
+    issue.state  = prev.state;
+    issue.stage  = prev.stage;
+    renderBoard();
+    const is403 = e.status === 403;
+    showErrorBanner(new Error(
+      is403 ? `Kanban move failed: PAT lacks Issues: Write. Update your token in ⚙ Settings.`
+            : `Kanban move failed: ${e.message}`
+    ));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1781,6 +1850,31 @@ function bindBoardSurface () {
   });
 }
 
+function bindBoardDropTargets () {
+  for (const col of ['todo', 'inprogress', 'inreview', 'done']) {
+    const colEl = document.querySelector(`.board-col[data-col="${col}"]`);
+    if (!colEl) continue;
+    colEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      colEl.classList.add('drop-target');
+    });
+    colEl.addEventListener('dragleave', (e) => {
+      // Only un-highlight when the cursor truly leaves the column box,
+      // not when it crosses an inner element.
+      if (e.target === colEl || !colEl.contains(e.relatedTarget)) {
+        colEl.classList.remove('drop-target');
+      }
+    });
+    colEl.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      colEl.classList.remove('drop-target');
+      const num = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (num) await moveIssueToStage(num, col);
+    });
+  }
+}
+
 function bindAssignedToMe () {
   document.getElementById('assignedToMe')?.addEventListener('change', e => {
     FILTERS.assignedToMe = e.target.checked;
@@ -1797,6 +1891,7 @@ function bindAssignedToMe () {
   bindSettings();
   bindNewSidebar();
   bindMobileSidebar();
+  bindBoardDropTargets();
   // Sidebar label search — incremental filter on the rendered list only.
   document.getElementById('labelSearch')?.addEventListener('input', () => renderLabels());
   bindBoardSurface();

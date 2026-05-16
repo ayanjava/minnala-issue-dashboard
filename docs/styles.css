@@ -123,6 +123,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   transition: border-color 120ms, color 120ms;
 }
 .btn-icon:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.btn-refresh {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.btn-refresh:hover { background: var(--color-accent); color: var(--color-bg); }
 
 /* ── Layout ─────────────────────────────────────────────────── */
 .layout {
@@ -290,11 +299,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
+  padding: 6px 10px;
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
   overflow: hidden;
+  min-height: 36px;
 }
 .kpi .k-label {
   font-size: 10px;
@@ -314,12 +324,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 .kpi[title] { cursor: help; }
 .kpi .k-val {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   line-height: 1;
 }
+.kpi .k-label.icon-only { font-size: 14px; }
 .kpi.p0 .k-val { color: var(--color-loss);  }
 .kpi.p1 .k-val { color: var(--color-alert); }
 .kpi.p2 .k-val { color: var(--color-blue);  }
@@ -827,12 +838,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  transition: border-color 120ms, transform 80ms;
+  cursor: grab;
+  transition: border-color 120ms, transform 80ms, opacity 80ms;
   display: flex; flex-direction: column; gap: var(--space-1);
 }
 .board-card:hover { border-color: var(--color-accent); transform: translateY(-1px); }
-.board-card.is-pr { border-left: 2px solid var(--color-purple); }
+.board-card.is-pr { border-left: 2px solid var(--color-purple); cursor: pointer; }
+.board-card.dragging { opacity: 0.4; cursor: grabbing; }
+.board-col.drop-target {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+.board-col.drop-target .board-empty { border-color: var(--color-accent); color: var(--color-accent); }
 .bc-head {
   display: flex; align-items: center; gap: var(--space-2);
   font-size: 11px;
@@ -1066,6 +1083,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .select-pill {
   width: 100%;
   padding: var(--space-2) var(--space-3);
+  padding-right: 36px;                /* room for chevron — no text/icon overlap */
   background: var(--color-bg-sunken);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -1077,8 +1095,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0a0b8' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right var(--space-3) center;
-  padding-right: var(--space-7);
+  background-position: right 12px center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .select-pill:focus { outline: none; border-color: var(--color-accent); }
 .select-pill:disabled { opacity: 0.5; cursor: not-allowed; }
