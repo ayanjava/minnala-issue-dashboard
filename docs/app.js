@@ -1797,10 +1797,20 @@ function renderReportsKPIs ({ reports }) {
 
   document.getElementById('rptOverallPct').textContent =
     prog?.totals?.done_pct != null ? prog.totals.done_pct + '%' : '—';
-  document.getElementById('rptTestPct').textContent =
-    tests?.summary?.pass_rate != null ? tests.summary.pass_rate + '%' :
-    tests?.summary?.passed != null && tests?.summary?.total
-      ? Math.round(tests.summary.passed / tests.summary.total * 100) + '%' : '—';
+  // Tests tile prefers run pass-rate; falls back to collection count
+  // (real number from `pytest --collect-only`) so users see scale
+  // even before CI runs a full suite. Final fallback: em-dash.
+  const testEl = document.getElementById('rptTestPct');
+  if (tests?.summary?.pass_rate != null) {
+    testEl.textContent = tests.summary.pass_rate + '%';
+  } else if (tests?.summary?.passed != null && tests?.summary?.total) {
+    testEl.textContent = Math.round(tests.summary.passed / tests.summary.total * 100) + '%';
+  } else if (tests?.collection?.tests_collected) {
+    testEl.textContent = tests.collection.tests_collected.toLocaleString();
+    testEl.title = `${tests.collection.tests_collected.toLocaleString()} tests collected by pytest (no run results yet). ${tests.collection.collection_errors || 0} collection errors.`;
+  } else {
+    testEl.textContent = '—';
+  }
   document.getElementById('rptCoveragePct').textContent =
     cov?.overall_pct != null ? cov.overall_pct + '%' : '—';
   // Quality-gate tile: if sonar has a web_url, render it as a link
