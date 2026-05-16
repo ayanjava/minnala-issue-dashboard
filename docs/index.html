@@ -49,6 +49,19 @@
   <!-- ── Sidebar ── -->
   <aside class="sidebar" id="sidebar">
 
+    <!-- Top-level views (router targets) -->
+    <div class="sidebar-section">
+      <div class="sidebar-head">Views</div>
+      <ul class="view-list">
+        <li><button class="view-row" data-route="dashboard">📊 <span class="view-label">Dashboard</span></button></li>
+        <li><button class="view-row" data-route="board">    🗂️ <span class="view-label">Board</span></button></li>
+        <li><button class="view-row" data-route="sprints">  🏁 <span class="view-label">Sprints</span></button></li>
+        <li><button class="view-row" data-route="activity"> 📡 <span class="view-label">Activity</span></button></li>
+        <li><button class="view-row" data-route="commits">  💾 <span class="view-label">Commits</span></button></li>
+        <li><button class="view-row primary" data-route="new">＋ <span class="view-label">New issue</span></button></li>
+      </ul>
+    </div>
+
     <!-- Curated module tree (taxonomy.json rules) -->
     <div class="sidebar-section">
       <div class="sidebar-head">Modules</div>
@@ -126,77 +139,306 @@
       </div>
     </section>
 
-    <!-- KPI tiles -->
-    <section class="kpis" id="kpis">
-      <div class="kpi"><div class="k-label">Open issues</div>       <div class="k-val" id="kpiOpenIssues">—</div></div>
-      <div class="kpi"><div class="k-label">Open PRs</div>          <div class="k-val" id="kpiOpenPRs">—</div></div>
-      <div class="kpi p0"><div class="k-label">P0</div>             <div class="k-val" id="kpiP0">—</div></div>
-      <div class="kpi p1"><div class="k-label">P1</div>             <div class="k-val" id="kpiP1">—</div></div>
-      <div class="kpi p2"><div class="k-label">P2</div>             <div class="k-val" id="kpiP2">—</div></div>
-      <div class="kpi"><div class="k-label">Opened 7d</div>         <div class="k-val" id="kpiOpened7d">—</div></div>
-      <div class="kpi"><div class="k-label">Closed 7d</div>         <div class="k-val" id="kpiClosed7d">—</div></div>
-      <div class="kpi"><div class="k-label">Merged 7d</div>         <div class="k-val" id="kpiMerged7d">—</div></div>
-    </section>
-
     <!-- Active filter banner -->
     <section id="filterBanner" class="filter-banner hidden"></section>
 
     <!-- Error banner -->
     <section id="errorBanner" class="error-banner hidden"></section>
 
-    <!-- Charts grid -->
-    <section class="charts">
-      <div class="card chart-card chart-donut">
-        <div class="card-head">By module <span class="muted">(open)</span></div>
-        <div class="chart-wrap"><canvas id="chartModule"></canvas></div>
-      </div>
-      <div class="card chart-card chart-stack">
-        <div class="card-head">Priority breakdown by module <span class="muted">(open)</span></div>
-        <div class="chart-wrap"><canvas id="chartPriorityStack"></canvas></div>
-      </div>
-      <div class="card chart-card chart-trend">
-        <div class="card-head">Open-count trend <span class="muted">(last 90 days)</span></div>
-        <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
-      </div>
-      <div class="card chart-card chart-age">
-        <div class="card-head">Age distribution <span class="muted">(open)</span></div>
-        <div class="chart-wrap"><canvas id="chartAge"></canvas></div>
-      </div>
-    </section>
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Dashboard
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view" id="view-dashboard">
 
-    <!-- Main issue table -->
-    <section class="card">
-      <div class="card-head">
-        <span id="tableHead">Issues &amp; PRs</span>
-        <span class="muted" id="tableCount"></span>
-      </div>
-      <div class="table-wrap">
-        <table id="issueTable">
-          <thead>
-            <tr>
-              <th data-sort="number" class="num">#</th>
-              <th data-sort="kind">Type</th>
-              <th data-sort="title">Title</th>
-              <th data-sort="module">Module</th>
-              <th data-sort="priority">Pri</th>
-              <th data-sort="author">Author</th>
-              <th data-sort="age_days" class="num">Age</th>
-              <th data-sort="comments" class="num">💬</th>
-              <th data-sort="state">State</th>
-            </tr>
-          </thead>
-          <tbody id="issueBody"></tbody>
-        </table>
-        <div id="pager" class="pager"></div>
-      </div>
-    </section>
+      <!-- KPI tiles -->
+      <section class="kpis" id="kpis">
+        <div class="kpi"><div class="k-label">Open issues</div>     <div class="k-val" id="kpiOpenIssues">—</div></div>
+        <div class="kpi"><div class="k-label">Open PRs</div>        <div class="k-val" id="kpiOpenPRs">—</div></div>
+        <div class="kpi p0"><div class="k-label">P0</div>           <div class="k-val" id="kpiP0">—</div></div>
+        <div class="kpi p1"><div class="k-label">P1</div>           <div class="k-val" id="kpiP1">—</div></div>
+        <div class="kpi p2"><div class="k-label">P2</div>           <div class="k-val" id="kpiP2">—</div></div>
+        <div class="kpi"><div class="k-label">Opened 7d</div>       <div class="k-val" id="kpiOpened7d">—</div></div>
+        <div class="kpi"><div class="k-label">Closed 7d</div>       <div class="k-val" id="kpiClosed7d">—</div></div>
+        <div class="kpi"><div class="k-label">Merged 7d</div>       <div class="k-val" id="kpiMerged7d">—</div></div>
+      </section>
+
+      <!-- Type breakdown tiles (Bug / Feature / Chore / Docs) -->
+      <section class="kpis kpis-type">
+        <div class="kpi type-bug"><div class="k-label">🐞 Bugs</div>       <div class="k-val" id="kpiBug">—</div></div>
+        <div class="kpi type-feat"><div class="k-label">✨ Features</div>   <div class="k-val" id="kpiFeat">—</div></div>
+        <div class="kpi type-chore"><div class="k-label">🧹 Chores</div>    <div class="k-val" id="kpiChore">—</div></div>
+        <div class="kpi type-docs"><div class="k-label">📚 Docs</div>       <div class="k-val" id="kpiDocs">—</div></div>
+      </section>
+
+      <!-- Charts grid -->
+      <section class="charts">
+        <div class="card chart-card chart-donut">
+          <div class="card-head">By module <span class="muted">(open)</span></div>
+          <div class="chart-wrap"><canvas id="chartModule"></canvas></div>
+        </div>
+        <div class="card chart-card chart-donut">
+          <div class="card-head">UI vs Backend <span class="muted">(open)</span></div>
+          <div class="chart-wrap"><canvas id="chartSurface"></canvas></div>
+        </div>
+        <div class="card chart-card chart-stack">
+          <div class="card-head">Priority breakdown by module <span class="muted">(open)</span></div>
+          <div class="chart-wrap"><canvas id="chartPriorityStack"></canvas></div>
+        </div>
+        <div class="card chart-card chart-trend">
+          <div class="card-head">Open-count trend <span class="muted">(last 90 days)</span></div>
+          <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+        </div>
+        <div class="card chart-card chart-age">
+          <div class="card-head">Age distribution <span class="muted">(open)</span></div>
+          <div class="chart-wrap"><canvas id="chartAge"></canvas></div>
+        </div>
+      </section>
+
+      <!-- Main issue table -->
+      <section class="card">
+        <div class="card-head">
+          <span id="tableHead">Issues &amp; PRs</span>
+          <span class="muted" id="tableCount"></span>
+          <span class="card-head-spacer"></span>
+          <label class="toggle-row" title="Filter to issues assigned to the token's logged-in user">
+            <input type="checkbox" id="assignedToMe">
+            <span>Assigned to me</span>
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table id="issueTable">
+            <thead>
+              <tr>
+                <th data-sort="number" class="num">#</th>
+                <th data-sort="kind">Type</th>
+                <th data-sort="title">Title</th>
+                <th>👤</th>
+                <th data-sort="module">Module</th>
+                <th data-sort="priority">Pri</th>
+                <th data-sort="author">Author</th>
+                <th data-sort="age_days" class="num">Age</th>
+                <th data-sort="comments" class="num">💬</th>
+                <th data-sort="state">State</th>
+              </tr>
+            </thead>
+            <tbody id="issueBody"></tbody>
+          </table>
+          <div id="pager" class="pager"></div>
+        </div>
+      </section>
+
+    </div><!-- /view-dashboard -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Kanban Board
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-board">
+      <section class="board-toolbar">
+        <span class="filter-label">Surface</span>
+        <div class="pill-group" id="boardSurface">
+          <button class="pill active" data-surf="all">All</button>
+          <button class="pill" data-surf="ui">UI</button>
+          <button class="pill" data-surf="backend">Backend</button>
+          <button class="pill" data-surf="fullstack">Full-stack</button>
+          <button class="pill" data-surf="unclassified">Unclassified</button>
+        </div>
+      </section>
+      <section class="board" id="board">
+        <div class="board-col" data-col="todo">
+          <div class="board-col-head">
+            <span class="board-col-dot" style="background: var(--color-text-dim)"></span>
+            <span class="board-col-title">To do</span>
+            <span class="board-col-count" id="boardCount-todo">0</span>
+          </div>
+          <div class="board-col-body" id="boardCol-todo"></div>
+        </div>
+        <div class="board-col" data-col="inprogress">
+          <div class="board-col-head">
+            <span class="board-col-dot" style="background: var(--color-alert)"></span>
+            <span class="board-col-title">In progress</span>
+            <span class="board-col-count" id="boardCount-inprogress">0</span>
+          </div>
+          <div class="board-col-body" id="boardCol-inprogress"></div>
+        </div>
+        <div class="board-col" data-col="inreview">
+          <div class="board-col-head">
+            <span class="board-col-dot" style="background: var(--color-blue)"></span>
+            <span class="board-col-title">In review</span>
+            <span class="board-col-count" id="boardCount-inreview">0</span>
+          </div>
+          <div class="board-col-body" id="boardCol-inreview"></div>
+        </div>
+        <div class="board-col" data-col="done">
+          <div class="board-col-head">
+            <span class="board-col-dot" style="background: var(--color-accent)"></span>
+            <span class="board-col-title">Done</span>
+            <span class="board-col-count" id="boardCount-done">0</span>
+          </div>
+          <div class="board-col-body" id="boardCol-done"></div>
+        </div>
+      </section>
+    </div><!-- /view-board -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Sprints (Milestones)
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-sprints">
+      <section class="sprint-layout">
+        <div class="sprint-main">
+          <div id="sprintsList" class="sprints-list">
+            <div class="muted" style="padding: var(--space-4)">Loading milestones…</div>
+          </div>
+        </div>
+        <aside class="sprint-side">
+          <div class="card">
+            <div class="card-head">Unassigned backlog <span class="muted" id="backlogCount"></span></div>
+            <ul id="backlogList" class="backlog-list">
+              <li class="muted" style="padding: var(--space-3)">Loading…</li>
+            </ul>
+          </div>
+        </aside>
+      </section>
+    </div><!-- /view-sprints -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: New issue
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-new">
+      <section class="new-issue" id="newIssueForm">
+        <div class="new-left card">
+          <div class="card-head">New issue → <code>ayanjava/0dte-v2</code></div>
+          <div class="card-body">
+            <label class="field-label">Title</label>
+            <input id="niTitle" type="text" placeholder="Short, user-facing summary" autocomplete="off">
+            <label class="field-label">Body (markdown)</label>
+            <textarea id="niBody" rows="14" placeholder="Symptom, root cause, file:line, proposed fix, severity rationale…"></textarea>
+            <div class="ni-actions">
+              <button id="niCreate" class="btn-primary">Create issue</button>
+              <span id="niStatus" class="muted"></span>
+            </div>
+          </div>
+        </div>
+        <aside class="new-right card">
+          <div class="card-head">Tags &amp; assignment</div>
+          <div class="card-body">
+            <div class="chip-section">
+              <label class="field-label">Surface</label>
+              <div class="pill-group" id="niSurface">
+                <button class="pill active" data-v="ui">UI</button>
+                <button class="pill" data-v="backend">Backend</button>
+                <button class="pill" data-v="both">Both</button>
+              </div>
+            </div>
+            <div class="chip-section">
+              <label class="field-label">Type</label>
+              <div class="pill-group" id="niType">
+                <button class="pill active" data-v="bug">bug</button>
+                <button class="pill" data-v="feat">feat</button>
+                <button class="pill" data-v="chore">chore</button>
+                <button class="pill" data-v="docs">docs</button>
+              </div>
+            </div>
+            <div class="chip-section">
+              <label class="field-label">Priority</label>
+              <div class="pill-group" id="niPriority">
+                <button class="pill p0" data-v="p0">p0</button>
+                <button class="pill p1 active" data-v="p1">p1</button>
+                <button class="pill p2" data-v="p2">p2</button>
+                <button class="pill" data-v="p3">p3</button>
+              </div>
+            </div>
+            <div class="chip-section">
+              <label class="field-label">Module (free-text)</label>
+              <input id="niModule" type="text" placeholder="e.g. streaming, signal-engine"
+                     autocomplete="off">
+              <div class="muted small">Becomes label <code>module:&lt;value&gt;</code>.</div>
+            </div>
+            <div class="chip-section">
+              <label class="field-label">Assignees</label>
+              <div id="niAssignees" class="ni-assignees">
+                <span class="muted small">Loading assignee list…</span>
+              </div>
+            </div>
+            <div class="chip-section">
+              <label class="field-label">Preview labels</label>
+              <div id="niPreview" class="ni-preview"></div>
+            </div>
+          </div>
+        </aside>
+      </section>
+      <section class="new-success card hidden" id="newSuccess">
+        <div class="card-head">✅ Issue created</div>
+        <div class="card-body" id="newSuccessBody"></div>
+      </section>
+    </div><!-- /view-new -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Activity (events)
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-activity">
+      <section class="card">
+        <div class="card-head">Repository activity <span class="muted">(latest 50 events)</span></div>
+        <ul id="activityList" class="activity-list">
+          <li class="muted" style="padding: var(--space-4)">Loading events…</li>
+        </ul>
+      </section>
+    </div><!-- /view-activity -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Commits
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-commits">
+      <section class="card">
+        <div class="card-head">Recent commits <span class="muted">(last 30 on default branch)</span></div>
+        <ul id="commitsList" class="commits-list">
+          <li class="muted" style="padding: var(--space-4)">Loading commits…</li>
+        </ul>
+      </section>
+    </div><!-- /view-commits -->
 
     <footer class="footer muted">
       Live data from <a href="https://github.com/ayanjava/0dte-v2" target="_blank" rel="noopener">ayanjava/0dte-v2</a>
-      via GitHub API. Click any row to open in a new tab.
+      via GitHub API. Token in localStorage only.
     </footer>
 
   </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Issue / PR detail drawer (modal). Opens on row-body click.
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="drawer" class="drawer hidden" aria-hidden="true">
+  <div class="drawer-backdrop"></div>
+  <div class="drawer-panel" role="dialog" aria-modal="true">
+    <header class="drawer-head">
+      <div class="drawer-meta">
+        <span class="t-state" id="drawerState">—</span>
+        <span class="muted t-num" id="drawerNumber">#—</span>
+      </div>
+      <h2 class="drawer-title" id="drawerTitle">—</h2>
+      <button class="btn-icon drawer-close" id="drawerClose" title="Close (Esc)">✕</button>
+    </header>
+    <div class="drawer-tags" id="drawerTags"></div>
+    <div class="drawer-tiles">
+      <div class="drawer-tile">
+        <div class="k-label">Opened</div>
+        <div class="drawer-tile-val" id="drawerOpened">—</div>
+      </div>
+      <div class="drawer-tile">
+        <div class="k-label">Last activity</div>
+        <div class="drawer-tile-val" id="drawerUpdated">—</div>
+      </div>
+    </div>
+    <section class="drawer-body" id="drawerBody"></section>
+    <section class="drawer-comments" id="drawerComments">
+      <div class="card-head" style="border:0; padding-left:0;">Comments <span class="muted" id="drawerCommentsCount"></span></div>
+      <ul id="drawerCommentsList" class="comments-list"></ul>
+    </section>
+    <footer class="drawer-foot">
+      <a id="drawerOpen" href="#" target="_blank" rel="noopener" class="btn-primary">Open in GitHub →</a>
+      <a id="drawerComment" href="#" target="_blank" rel="noopener" class="btn-ghost">Add comment</a>
+    </footer>
+  </div>
 </div>
 
 <script src="app.js"></script>

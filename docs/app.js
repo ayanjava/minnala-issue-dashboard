@@ -24,18 +24,29 @@ const STATE = {
   issues:   [],          // slim records, includes PRs
   stats:    null,
   rateLimit: { limit: null, remaining: null, reset: null, used: null },
+  currentUser: null,     // /user login (for 'Assigned to me')
+  milestones: null,      // lazy-loaded
+  events:     null,      // lazy-loaded
+  commits:    null,      // lazy-loaded
+  assignees:  null,      // lazy-loaded (collaborators)
+  drawer:     { number: null, comments: null },
 };
 
 const FILTERS = {
   module:    null,
   submodule: null,
-  label:     null,       // single auto-discovered label
-  type:      'all',      // all | issue | pr
-  priority:  'all',      // all | p0 | p1 | p2 | none
-  status:    'open',     // open | closed | merged | all
+  label:     null,
+  type:      'all',
+  priority:  'all',
+  status:    'open',
   age:       'all',
   search:    '',
+  assignedToMe: false,   // top-right toggle on dashboard table
+  surface:   'all',      // Kanban-only surface filter
 };
+
+// Hash router: #/dashboard #/board #/sprints #/new #/activity #/commits
+const ROUTE = { current: 'dashboard' };
 
 const LABEL_META = new Map();   // labelName -> { color, count, used_pr, used_issue }
 
@@ -155,6 +166,43 @@ function priorityOf (labelNames, priorityLabels) {
   return null;
 }
 
+// Surface classification — UI / Backend / Full-stack / Unclassified.
+// Derived from labels only (frontend ones get UI; backend/server/api get
+// Backend; if both signals present → Full-stack). Used by the Kanban
+// surface filter and the new "UI vs Backend" donut.
+function surfaceOf (labelNames) {
+  const set = new Set(labelNames.map(n => n.toLowerCase()));
+  const ui = set.has('ui') || set.has('frontend') || set.has('v1-cutover');
+  const be = set.has('backend') || set.has('server') || set.has('api')
+          || set.has('signal-engine') || set.has('broker') || set.has('streaming')
+          || set.has('storage') || set.has('schema-drift') || set.has('auth')
+          || set.has('multi-user') || set.has('infra');
+  if (set.has('fullstack') || (ui && be)) return 'fullstack';
+  if (ui) return 'ui';
+  if (be) return 'backend';
+  return 'unclassified';
+}
+
+// Type classification — Bug / Feature / Chore / Docs. Used for the
+// "Type breakdown" tiles row on the dashboard.
+function typeOf (labelNames) {
+  const set = new Set(labelNames.map(n => n.toLowerCase()));
+  if (set.has('bug')) return 'bug';
+  if (set.has('documentation') || set.has('docs')) return 'docs';
+  if (set.has('enhancement') || set.has('feature') || set.has('feat')) return 'feat';
+  if (set.has('chore') || set.has('tech-debt') || set.has('task')) return 'chore';
+  return null;
+}
+
+// Kanban stage from labels (open) or 'done' (closed).
+function stageOf (item) {
+  if (item.state !== 'open') return 'done';
+  const set = new Set((item.labels || []).map(n => n.toLowerCase()));
+  if (set.has('review') || set.has('qa') || set.has('ready-for-review')) return 'inreview';
+  if (set.has('in-progress') || set.has('wip') || set.has('doing')) return 'inprogress';
+  return 'todo';
+}
+
 function ageDaysFrom (iso) {
   if (!iso) return -1;
   const t = new Date(iso).getTime();
@@ -207,7 +255,17 @@ function slimRecord (item, taxonomy) {
     age_days: ageDaysFrom(item.created_at),
     comments: item.comments || 0,
     author: item.user?.login || '',
-    assignee: item.assignee?.login || '',
+    author_avatar: item.user?.avatar_url || '',
+    assignees: (item.assignees || []).map(a => ({
+      login: a.login,
+      avatar: a.avatar_url,
+    })),
+    surface: surfaceOf(labels),
+    kind_type: typeOf(labels),
+    stage: null,        // computed below; needs the slim record itself
+    body: item.body || '',
+    milestone: item.milestone ? { number: item.milestone.number,
+                                  title: item.milestone.title } : null,
   };
 }
 
@@ -321,6 +379,11 @@ async function loadData () {
     const raw = await fetchAllIssues(token);
     LABEL_META.clear();          // rebuild label index from scratch
     STATE.issues  = raw.map(r => slimRecord(r, STATE.taxonomy));
+    for (const i of STATE.issues) i.stage = stageOf(i);
+    // Resolve the logged-in user (for 'Assigned to me' toggle).
+    // Non-fatal: failure leaves currentUser=null and the toggle just
+    // shows no rows when checked.
+    try { STATE.currentUser = await fetchCurrentUser(token); } catch { STATE.currentUser = null; }
     STATE.stats   = buildStats(STATE.issues, STATE.taxonomy);
     STATE.modules = STATE.stats.modules;
 
@@ -399,6 +462,18 @@ function escapeHTML (s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 }
+function fmtRelative (iso) {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (sec < 60)    return `${sec}s ago`;
+  if (sec < 3600)  return `${Math.floor(sec/60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec/3600)}h ago`;
+  const days = Math.floor(sec / 86400);
+  if (days < 30)   return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 /* ── Sidebar ──────────────────────────────────────────────────── */
 
@@ -423,9 +498,16 @@ function renderSidebar () {
       <span class="module-count">${m.open}</span>
     `;
     head.onclick = () => {
-      if (FILTERS.module === m.id && !FILTERS.submodule) { FILTERS.module = null; }
-      else { FILTERS.module = m.id; FILTERS.submodule = null; }
-      PAGE.idx = 0; render();
+      if (FILTERS.module === m.id && !FILTERS.submodule) {
+        FILTERS.module = null;
+      } else {
+        FILTERS.module = m.id;
+        FILTERS.submodule = null;
+      }
+      PAGE.idx = 0;
+      // Module clicks jump to the dashboard table per spec.
+      if (ROUTE.current !== 'dashboard') navigate('dashboard');
+      else render();
     };
     li.appendChild(head);
 
@@ -445,7 +527,9 @@ function renderSidebar () {
           ev.stopPropagation();
           FILTERS.module = m.id;
           FILTERS.submodule = isActive ? null : s.id;
-          PAGE.idx = 0; render();
+          PAGE.idx = 0;
+          if (ROUTE.current !== 'dashboard') navigate('dashboard');
+          else render();
         };
         const subLi = document.createElement('li');
         subLi.appendChild(sb);
@@ -486,6 +570,10 @@ function applyFilters (issues) {
     if (q) {
       const hay = `${i.title} #${i.number} ${i.author}`.toLowerCase();
       if (!hay.includes(q)) return false;
+    }
+    if (FILTERS.assignedToMe && STATE.currentUser) {
+      const me = STATE.currentUser.login;
+      if (!(i.assignees || []).some(a => a.login === me)) return false;
     }
     return true;
   });
@@ -710,7 +798,11 @@ function renderTable (filtered) {
   for (const i of slice) {
     const tr = document.createElement('tr');
     tr.className = (i.state === 'open' ? '' : 'closed');
-    tr.onclick = () => window.open(i.url, '_blank', 'noopener');
+    // Click body → drawer; the ↗ link in the title cell → GH directly.
+    tr.onclick = (e) => {
+      if (e.target.closest('.t-extlink')) return;   // let the link handle it
+      openDrawer(i.number);
+    };
     const pri = i.priority || 'none';
     const kindPill = i.is_pr
       ? `<span class="t-kind pr">${i.draft ? 'Draft' : 'PR'}</span>`
@@ -719,7 +811,11 @@ function renderTable (filtered) {
     tr.innerHTML = `
       <td class="num"><span class="t-num">${i.number}</span></td>
       <td>${kindPill}</td>
-      <td><span class="t-title">${escapeHTML(i.title)}</span></td>
+      <td>
+        <span class="t-title">${escapeHTML(i.title)}</span>
+        <a class="t-extlink" target="_blank" rel="noreferrer" href="${i.url}" title="Open in GitHub">↗</a>
+      </td>
+      <td>${renderAvatarStack(i.assignees, 2)}</td>
       <td><span class="t-mod" style="color:${moduleColor(i.module)}">${moduleLabel(i.module).split(' ')[0]}</span> <span class="muted">${escapeHTML(submoduleLabel(i.module, i.submodule))}</span></td>
       <td><span class="t-pri ${pri}">${pri}</span></td>
       <td><span class="t-author">${escapeHTML(i.author || '—')}</span></td>
@@ -757,11 +853,18 @@ function render () {
   renderFilterBanner();
   const filtered = applyFilters(STATE.issues);
   renderKPIs();
-  renderChartModule(filtered);
-  renderChartPriorityStack(filtered);
-  renderChartTrend();
-  renderChartAge(filtered);
-  renderTable(filtered);
+  renderTypeTiles(filtered);
+  // Charts only relevant on the dashboard view; cheap to compute either way.
+  if (ROUTE.current === 'dashboard') {
+    renderChartModule(filtered);
+    renderChartSurface(filtered);
+    renderChartPriorityStack(filtered);
+    renderChartTrend();
+    renderChartAge(filtered);
+    renderTable(filtered);
+  }
+  // Board re-renders too if it's the active view (e.g. after filter change).
+  if (ROUTE.current === 'board') renderBoard();
 }
 
 /* ── Event wiring ─────────────────────────────────────────────── */
@@ -837,11 +940,687 @@ function bindSettings () {
   });
 }
 
-/* ── Boot ─────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   New GitHub API helpers — milestones, events, commits, assignees,
+   current user, issue comments, POST new issue. All reuse the same
+   PAT + rate-limit capture path as fetchPage().
+   ═══════════════════════════════════════════════════════════════ */
+
+async function ghGet (path, params = {}) {
+  const url = new URL(`https://api.github.com${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  const tok = getPAT();
+  if (tok) headers['Authorization'] = `Bearer ${tok}`;
+  const r = await fetch(url, { headers });
+  STATE.rateLimit = {
+    limit:     parseInt(r.headers.get('x-ratelimit-limit')     || '0', 10),
+    remaining: parseInt(r.headers.get('x-ratelimit-remaining') || '0', 10),
+    reset:     parseInt(r.headers.get('x-ratelimit-reset')     || '0', 10),
+    used:      parseInt(r.headers.get('x-ratelimit-used')      || '0', 10),
+  };
+  updateRateLimitDisplay();
+  if (!r.ok) {
+    const txt = await r.text();
+    const err = new Error(`GH ${r.status}: ${txt.slice(0, 120)}`);
+    err.status = r.status; throw err;
+  }
+  return r.json();
+}
+
+async function ghPost (path, body) {
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
+  };
+  const tok = getPAT();
+  if (tok) headers['Authorization'] = `Bearer ${tok}`;
+  const r = await fetch(`https://api.github.com${path}`, {
+    method: 'POST', headers, body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    const err = new Error(`GH ${r.status}: ${txt.slice(0, 200)}`);
+    err.status = r.status; throw err;
+  }
+  return r.json();
+}
+
+const fetchCurrentUser = (tok) => ghGet('/user');
+const fetchMilestones  = ()    => ghGet(`/repos/${REPO}/milestones`, { state: 'all', per_page: 100, sort: 'due_on', direction: 'asc' });
+const fetchEvents      = ()    => ghGet(`/repos/${REPO}/events`,     { per_page: 50 });
+const fetchCommits     = ()    => ghGet(`/repos/${REPO}/commits`,    { per_page: 30 });
+const fetchAssignees   = ()    => ghGet(`/repos/${REPO}/assignees`,  { per_page: 100 });
+const fetchComments    = (n)   => ghGet(`/repos/${REPO}/issues/${n}/comments`, { per_page: 100 });
+const fetchIssueDetail = (n)   => ghGet(`/repos/${REPO}/issues/${n}`);
+
+function createIssue (payload) {
+  return ghPost(`/repos/${REPO}/issues`, payload);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Router — hash-based, no library.
+   ═══════════════════════════════════════════════════════════════ */
+
+const VIEWS = ['dashboard', 'board', 'sprints', 'new', 'activity', 'commits'];
+
+function parseHash () {
+  const raw = (location.hash || '').replace(/^#\/?/, '');
+  const [route, qs] = raw.split('?');
+  const params = new URLSearchParams(qs || '');
+  return { route: VIEWS.includes(route) ? route : 'dashboard', params };
+}
+
+function navigate (route, params) {
+  let hash = '#/' + route;
+  if (params && Object.keys(params).length) {
+    hash += '?' + new URLSearchParams(params).toString();
+  }
+  if (location.hash !== hash) location.hash = hash;
+  else handleRoute();
+}
+
+async function handleRoute () {
+  const { route, params } = parseHash();
+  ROUTE.current = route;
+
+  // Read deep-link filter params (e.g. ?module=brokers&submodule=tiger)
+  if (params.has('module'))    FILTERS.module    = params.get('module');
+  if (params.has('submodule')) FILTERS.submodule = params.get('submodule');
+  if (params.has('label'))     FILTERS.label     = params.get('label');
+
+  // Toggle view containers.
+  for (const v of VIEWS) {
+    document.getElementById(`view-${v}`)?.classList.toggle('hidden', v !== route);
+  }
+  // Sidebar active highlight.
+  document.querySelectorAll('.view-row').forEach(b => {
+    b.classList.toggle('active', b.dataset.route === route);
+  });
+
+  render();                     // re-render shared sidebar + filters
+  await renderActiveView();
+}
+
+async function renderActiveView () {
+  switch (ROUTE.current) {
+    case 'board':    renderBoard(); break;
+    case 'sprints':  await renderSprintsView(); break;
+    case 'activity': await renderActivityView(); break;
+    case 'commits':  await renderCommitsView(); break;
+    case 'new':      renderNewIssueForm(); break;
+    case 'dashboard':
+    default:                       // dashboard renders inside render()
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View: Kanban board
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderBoard () {
+  // Honors global PRIORITY / STATUS / AGE / Module filters + the
+  // surface filter unique to the Board view.
+  const filtered = applyFilters(STATE.issues).filter(i =>
+    FILTERS.surface === 'all' ? true : i.surface === FILTERS.surface
+  );
+  const buckets = { todo: [], inprogress: [], inreview: [], done: [] };
+  for (const i of filtered) buckets[i.stage]?.push(i);
+
+  for (const col of Object.keys(buckets)) {
+    document.getElementById(`boardCount-${col}`).textContent = buckets[col].length;
+    const body = document.getElementById(`boardCol-${col}`);
+    body.innerHTML = '';
+    if (buckets[col].length === 0) {
+      body.innerHTML = '<div class="board-empty">Drop here</div>';
+      continue;
+    }
+    for (const i of buckets[col].slice(0, 50)) {   // cap per col for sanity
+      body.appendChild(boardCard(i));
+    }
+    if (buckets[col].length > 50) {
+      const more = document.createElement('div');
+      more.className = 'board-more muted';
+      more.textContent = `+ ${buckets[col].length - 50} more`;
+      body.appendChild(more);
+    }
+  }
+}
+
+function boardCard (i) {
+  const card = document.createElement('div');
+  card.className = 'board-card' + (i.is_pr ? ' is-pr' : '');
+  const pri = i.priority || 'none';
+  const updatedAgo = fmtRelative(i.updated_at);
+  const avatarHTML = renderAvatarStack(i.assignees, 2);
+  const moduleIcon = STATE.modules.find(m => m.id === i.module)?.icon || '';
+  card.innerHTML = `
+    <div class="bc-head">
+      <span class="t-num">#${i.number}</span>
+      ${i.is_pr ? '<span class="t-kind pr">PR</span>' : ''}
+      <span class="t-pri ${pri}">${pri}</span>
+      <span class="bc-spacer"></span>
+      ${avatarHTML}
+    </div>
+    <div class="bc-title">${escapeHTML(i.title)}</div>
+    <div class="bc-foot">
+      <span class="bc-mod" style="color:${moduleColor(i.module)}" title="${escapeHTML(moduleLabel(i.module))}">${moduleIcon}</span>
+      <span class="muted">updated ${updatedAgo}</span>
+    </div>
+  `;
+  // Click body opens drawer; the ↗ link opens GH directly.
+  card.onclick = () => openDrawer(i.number);
+  return card;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View: Sprints / milestones
+   ═══════════════════════════════════════════════════════════════ */
+
+async function renderSprintsView () {
+  const listEl = document.getElementById('sprintsList');
+  const backlogEl = document.getElementById('backlogList');
+  const backlogCountEl = document.getElementById('backlogCount');
+
+  // Unassigned backlog (always derivable from local STATE.issues —
+  // these are issues with milestone=null AND state=open).
+  const backlog = applyFilters(STATE.issues).filter(i => !i.milestone && !i.is_pr).slice(0, 12);
+  backlogCountEl.textContent = backlog.length ? `(top ${backlog.length})` : '';
+  backlogEl.innerHTML = backlog.length
+    ? backlog.map(i => `
+        <li class="backlog-row" data-num="${i.number}" title="${escapeHTML(i.title)}">
+          <span class="o-num">#${i.number}</span>
+          <span class="o-title">${escapeHTML(i.title)}</span>
+          <span class="t-pri ${i.priority || 'none'}">${i.priority || 'none'}</span>
+        </li>`).join('')
+    : '<li class="muted" style="padding: var(--space-3)">No unassigned issues.</li>';
+  backlogEl.querySelectorAll('.backlog-row').forEach(r => {
+    r.onclick = () => openDrawer(parseInt(r.dataset.num, 10));
+  });
+
+  // Milestones — lazy fetch on first visit.
+  if (STATE.milestones === null) {
+    try { STATE.milestones = await fetchMilestones(); }
+    catch (e) { listEl.innerHTML = `<div class="error-banner">${escapeHTML(e.message)}</div>`; return; }
+  }
+
+  if (!STATE.milestones.length) {
+    listEl.innerHTML = `
+      <div class="card empty-state">
+        <div class="card-body">
+          <h3>No milestones yet</h3>
+          <p class="muted">Create your first milestone on GitHub to plan a sprint.</p>
+          <a class="btn-primary" target="_blank" rel="noopener"
+             href="https://github.com/${REPO}/milestones/new">Create on GitHub →</a>
+        </div>
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = STATE.milestones.map(m => renderMilestoneCard(m)).join('');
+}
+
+function renderMilestoneCard (m) {
+  const open = m.open_issues || 0;
+  const closed = m.closed_issues || 0;
+  const total = open + closed;
+  const pct = total ? Math.round((closed / total) * 100) : 0;
+  const due = m.due_on ? new Date(m.due_on).toLocaleDateString() : '—';
+  const stateClass = m.state === 'open' ? 'open' : 'closed';
+
+  // Modules in scope — issues on this milestone, grouped by module.
+  const onMilestone = STATE.issues.filter(i => i.milestone?.number === m.number);
+  const modCounts = {};
+  for (const i of onMilestone) modCounts[i.module] = (modCounts[i.module] || 0) + 1;
+  const modChips = Object.entries(modCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, n]) => {
+      const mm = STATE.modules.find(x => x.id === id);
+      return `<span class="ms-chip" style="border-color:${mm?.color || COLOR.dim}">
+        ${mm?.icon || ''} ${escapeHTML(mm?.label || id)} <span class="muted">${n}</span></span>`;
+    }).join('');
+
+  return `
+    <article class="card milestone-card">
+      <header class="milestone-head">
+        <div>
+          <h3 class="milestone-title">${escapeHTML(m.title)}</h3>
+          ${m.description ? `<p class="muted small">${escapeHTML(m.description)}</p>` : ''}
+        </div>
+        <span class="t-state ${stateClass}">${m.state}</span>
+      </header>
+      <div class="milestone-progress">
+        <div class="milestone-bar"><div class="milestone-bar-fill" style="width:${pct}%"></div></div>
+        <span class="milestone-pct">${pct}%</span>
+      </div>
+      <div class="milestone-stats">
+        <div><span class="muted">open</span> <span class="big">${open}</span></div>
+        <div><span class="muted">closed</span> <span class="big">${closed}</span></div>
+        <div><span class="muted">due</span> <span class="big">${due}</span></div>
+      </div>
+      ${modChips ? `<div class="milestone-mods"><span class="muted small">Modules in scope:</span> ${modChips}</div>` : ''}
+      <footer class="milestone-foot">
+        <a class="btn-ghost" target="_blank" rel="noopener" href="${m.html_url}">Open in GitHub →</a>
+      </footer>
+    </article>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View: Activity feed
+   ═══════════════════════════════════════════════════════════════ */
+
+async function renderActivityView () {
+  const list = document.getElementById('activityList');
+  if (STATE.events === null) {
+    try { STATE.events = await fetchEvents(); }
+    catch (e) { list.innerHTML = `<li class="error-banner">${escapeHTML(e.message)}</li>`; return; }
+  }
+  if (!STATE.events.length) {
+    list.innerHTML = '<li class="muted" style="padding: var(--space-4)">No recent activity.</li>';
+    return;
+  }
+  list.innerHTML = STATE.events.map(renderEventRow).join('');
+}
+
+function renderEventRow (e) {
+  const actor = e.actor?.login || '—';
+  const avatar = e.actor?.avatar_url || '';
+  const when = fmtRelative(e.created_at);
+  const p = e.payload || {};
+  let icon = '·', tone = 'neutral', text = e.type, link = `https://github.com/${REPO}`;
+
+  switch (e.type) {
+    case 'IssuesEvent':
+      icon = '⚪'; tone = 'blue';
+      text = `${p.action} issue #${p.issue?.number}: ${p.issue?.title || ''}`;
+      link = p.issue?.html_url || link;
+      break;
+    case 'IssueCommentEvent':
+      icon = '💬'; tone = 'cyan';
+      text = `commented on #${p.issue?.number}: ${(p.comment?.body || '').slice(0, 120)}`;
+      link = p.comment?.html_url || link;
+      break;
+    case 'PullRequestEvent':
+      icon = '🔀'; tone = 'purple';
+      text = `${p.action} PR #${p.pull_request?.number}: ${p.pull_request?.title || ''}`;
+      link = p.pull_request?.html_url || link;
+      break;
+    case 'PullRequestReviewCommentEvent':
+      icon = '📝'; tone = 'purple';
+      text = `review comment on PR #${p.pull_request?.number}: ${(p.comment?.body || '').slice(0, 120)}`;
+      link = p.comment?.html_url || link;
+      break;
+    case 'PushEvent': {
+      icon = '⬆'; tone = 'accent';
+      const branch = (p.ref || '').replace('refs/heads/', '');
+      const n = (p.commits || []).length;
+      text = `pushed ${n} commit${n === 1 ? '' : 's'} to ${branch}`;
+      const first = p.commits?.[0];
+      link = first ? `https://github.com/${REPO}/commit/${first.sha}` : link;
+      break;
+    }
+    case 'CreateEvent':
+      icon = '🌱'; tone = 'accent';
+      text = `created ${p.ref_type} ${p.ref || ''}`;
+      link = `https://github.com/${REPO}/${p.ref_type === 'branch' ? 'tree' : ''}/${p.ref || ''}`;
+      break;
+    case 'DeleteEvent':
+      icon = '🗑'; tone = 'loss';
+      text = `deleted ${p.ref_type} ${p.ref || ''}`; break;
+    case 'WatchEvent':
+      icon = '⭐'; tone = 'alert';
+      text = `starred the repo`; break;
+    case 'ForkEvent':
+      icon = '🍴'; tone = 'cyan';
+      text = `forked the repo`; break;
+  }
+  return `
+    <li class="activity-row tone-${tone}">
+      <span class="activity-icon">${icon}</span>
+      ${avatar ? `<img class="avatar sm" src="${avatar}&s=40" alt="">` : ''}
+      <span class="activity-actor">${escapeHTML(actor)}</span>
+      <a class="activity-text" target="_blank" rel="noopener" href="${link}">${escapeHTML(text)}</a>
+      <span class="muted activity-when">${when}</span>
+    </li>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View: Commits feed
+   ═══════════════════════════════════════════════════════════════ */
+
+async function renderCommitsView () {
+  const list = document.getElementById('commitsList');
+  if (STATE.commits === null) {
+    try { STATE.commits = await fetchCommits(); }
+    catch (e) { list.innerHTML = `<li class="error-banner">${escapeHTML(e.message)}</li>`; return; }
+  }
+  if (!STATE.commits.length) {
+    list.innerHTML = '<li class="muted" style="padding: var(--space-4)">No commits.</li>';
+    return;
+  }
+  list.innerHTML = STATE.commits.map(c => {
+    const sha = (c.sha || '').slice(0, 7);
+    const author = c.author?.login || c.commit?.author?.name || '—';
+    const avatar = c.author?.avatar_url || '';
+    const date = c.commit?.author?.date || c.commit?.committer?.date;
+    const msgFirst = (c.commit?.message || '').split('\n')[0];
+    // Auto-link "#123" → clickable chip
+    const linked = escapeHTML(msgFirst).replace(/#(\d+)/g, (m, n) =>
+      `<a class="issue-chip" target="_blank" rel="noopener" href="https://github.com/${REPO}/issues/${n}">#${n}</a>`);
+    return `
+      <li class="commit-row">
+        ${avatar ? `<img class="avatar sm" src="${avatar}&s=40" alt="">` : '<span class="avatar sm placeholder"></span>'}
+        <a class="commit-msg" target="_blank" rel="noopener" href="${c.html_url}">${linked}</a>
+        <span class="sha-badge"><code>${sha}</code></span>
+        <span class="muted commit-author">${escapeHTML(author)}</span>
+        <span class="muted commit-when">${fmtRelative(date)}</span>
+      </li>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View: New issue form
+   ═══════════════════════════════════════════════════════════════ */
+
+const NI_STATE = {
+  surface: 'ui', type: 'bug', priority: 'p1',
+  module: '', assignees: new Set(),
+};
+
+async function renderNewIssueForm () {
+  // Reset success state on every view entry.
+  document.getElementById('newIssueForm').classList.remove('hidden');
+  document.getElementById('newSuccess').classList.add('hidden');
+
+  // Lazy-load assignee suggestions.
+  const aBox = document.getElementById('niAssignees');
+  if (STATE.assignees === null) {
+    try { STATE.assignees = await fetchAssignees(); }
+    catch (e) { aBox.innerHTML = `<span class="muted small">Couldn't load assignees: ${escapeHTML(e.message)}</span>`; STATE.assignees = []; }
+  }
+  if (STATE.assignees.length) {
+    aBox.innerHTML = STATE.assignees.map(a => `
+      <button class="pill assignee-pill ${NI_STATE.assignees.has(a.login) ? 'active' : ''}" data-login="${escapeHTML(a.login)}">
+        <img class="avatar xs" src="${a.avatar_url}&s=24" alt="">
+        ${escapeHTML(a.login)}
+      </button>`).join('');
+    aBox.querySelectorAll('.assignee-pill').forEach(b => {
+      b.onclick = () => {
+        const log = b.dataset.login;
+        if (NI_STATE.assignees.has(log)) NI_STATE.assignees.delete(log);
+        else NI_STATE.assignees.add(log);
+        b.classList.toggle('active');
+        refreshNiPreview();
+      };
+    });
+  } else if (!aBox.innerHTML) {
+    aBox.innerHTML = '<span class="muted small">No assignees available.</span>';
+  }
+
+  refreshNiPreview();
+}
+
+function composeNiLabels () {
+  const labels = [];
+  if (NI_STATE.surface === 'both')    labels.push('ui', 'backend');
+  else if (NI_STATE.surface)          labels.push(NI_STATE.surface === 'ui' ? 'ui' : NI_STATE.surface === 'backend' ? 'backend' : NI_STATE.surface);
+  labels.push(NI_STATE.type);
+  labels.push(NI_STATE.priority);
+  const m = (NI_STATE.module || '').trim();
+  if (m) labels.push(`module:${m}`);
+  return labels;
+}
+
+function refreshNiPreview () {
+  const labels = composeNiLabels();
+  document.getElementById('niPreview').innerHTML = labels.map(l =>
+    `<span class="t-kind issue">${escapeHTML(l)}</span>`).join(' ');
+}
+
+function bindNewIssueForm () {
+  const wire = (groupId, key) => {
+    document.getElementById(groupId).addEventListener('click', e => {
+      const b = e.target.closest('.pill'); if (!b) return;
+      NI_STATE[key] = b.dataset.v;
+      document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove('active'));
+      b.classList.add('active');
+      refreshNiPreview();
+    });
+  };
+  wire('niSurface', 'surface');
+  wire('niType', 'type');
+  wire('niPriority', 'priority');
+  document.getElementById('niModule').addEventListener('input', e => {
+    NI_STATE.module = e.target.value; refreshNiPreview();
+  });
+  document.getElementById('niCreate').addEventListener('click', async () => {
+    const title = document.getElementById('niTitle').value.trim();
+    const body  = document.getElementById('niBody').value;
+    const statusEl = document.getElementById('niStatus');
+    if (!title) { statusEl.textContent = 'Title required.'; return; }
+    statusEl.textContent = 'Submitting…';
+    try {
+      const result = await createIssue({
+        title, body,
+        labels: composeNiLabels(),
+        assignees: Array.from(NI_STATE.assignees),
+      });
+      document.getElementById('newIssueForm').classList.add('hidden');
+      const ok = document.getElementById('newSuccess');
+      ok.classList.remove('hidden');
+      document.getElementById('newSuccessBody').innerHTML = `
+        <h3>#${result.number} — ${escapeHTML(result.title)}</h3>
+        <div class="ni-success-labels">${(result.labels || []).map(l =>
+          `<span class="t-kind issue">${escapeHTML(l.name)}</span>`).join(' ')}</div>
+        <div class="ni-actions">
+          <a class="btn-primary" target="_blank" rel="noopener" href="${result.html_url}">Open in GitHub →</a>
+          <button class="btn-ghost" id="niAnother">Create another</button>
+        </div>`;
+      document.getElementById('niAnother').onclick = () => {
+        document.getElementById('niTitle').value = '';
+        document.getElementById('niBody').value = '';
+        document.getElementById('niModule').value = '';
+        NI_STATE.module = '';
+        renderNewIssueForm();
+      };
+      // Refresh dashboard data so the new issue shows up next time.
+      STATE.issues.length = 0;
+      await loadData();
+      render();
+    } catch (e) {
+      statusEl.textContent = `Error: ${e.message}`;
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Issue detail drawer
+   ═══════════════════════════════════════════════════════════════ */
+
+function escapeAttr (s) { return escapeHTML(s).replace(/"/g, '&quot;'); }
+
+// Very small markdown subset — bold/italic/inline code/code block/
+// link/autolink/#N. NOT a full parser; goal is "readable enough".
+function simpleMd (text) {
+  if (!text) return '';
+  let html = escapeHTML(text);
+  html = html.replace(/```([\s\S]*?)```/g, (_, c) => `<pre><code>${c}</code></pre>`);
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,
+    '<a target="_blank" rel="noreferrer" href="$2">$1</a>');
+  html = html.replace(/(^|\s)(https?:\/\/[^\s<]+)/g,
+    '$1<a target="_blank" rel="noreferrer" href="$2">$2</a>');
+  html = html.replace(/(^|\s)#(\d+)/g,
+    `$1<a class="issue-chip" target="_blank" rel="noreferrer" href="https://github.com/${REPO}/issues/$2">#$2</a>`);
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+async function openDrawer (n) {
+  STATE.drawer = { number: n, comments: null };
+  const issue = STATE.issues.find(i => i.number === n);
+  const drawer = document.getElementById('drawer');
+  drawer.classList.remove('hidden');
+  drawer.setAttribute('aria-hidden', 'false');
+
+  if (issue) {
+    document.getElementById('drawerNumber').textContent = `#${n}`;
+    document.getElementById('drawerTitle').textContent = issue.title;
+    document.getElementById('drawerState').textContent = issue.state;
+    document.getElementById('drawerState').className = `t-state ${issue.state}`;
+    const tags = [];
+    if (issue.surface !== 'unclassified') tags.push(`<span class="t-kind">surface: ${issue.surface}</span>`);
+    if (issue.kind_type) tags.push(`<span class="t-kind">type: ${issue.kind_type}</span>`);
+    if (issue.module)    tags.push(`<span class="t-kind" style="color:${moduleColor(issue.module)}; border-color:${moduleColor(issue.module)}">${escapeHTML(moduleLabel(issue.module))}</span>`);
+    if (issue.priority)  tags.push(`<span class="t-pri ${issue.priority}">${issue.priority}</span>`);
+    if (issue.is_pr)     tags.push(`<span class="t-kind pr">PR</span>`);
+    document.getElementById('drawerTags').innerHTML = tags.join(' ');
+    document.getElementById('drawerOpened').textContent = new Date(issue.created_at).toLocaleString();
+    document.getElementById('drawerUpdated').textContent = fmtRelative(issue.updated_at);
+    document.getElementById('drawerBody').innerHTML = simpleMd(issue.body);
+    document.getElementById('drawerOpen').href = issue.url;
+    document.getElementById('drawerComment').href = issue.url + '#new_comment_field';
+  }
+
+  // Fetch comments lazily.
+  const cl = document.getElementById('drawerCommentsList');
+  const cc = document.getElementById('drawerCommentsCount');
+  cc.textContent = '(loading…)';
+  cl.innerHTML = '';
+  try {
+    const comments = await fetchComments(n);
+    STATE.drawer.comments = comments;
+    cc.textContent = `(${comments.length})`;
+    cl.innerHTML = comments.length
+      ? comments.map(c => `
+          <li class="comment-row">
+            <img class="avatar sm" src="${c.user?.avatar_url || ''}&s=40" alt="">
+            <div class="comment-body">
+              <div class="comment-meta">
+                <strong>${escapeHTML(c.user?.login || '—')}</strong>
+                <span class="muted small">${fmtRelative(c.created_at)}</span>
+              </div>
+              <div class="comment-text">${simpleMd((c.body || '').slice(0, 320) + ((c.body || '').length > 320 ? '…' : ''))}</div>
+            </div>
+          </li>`).join('')
+      : '<li class="muted" style="padding: var(--space-3)">No comments.</li>';
+  } catch (e) {
+    cc.textContent = '(error)';
+    cl.innerHTML = `<li class="muted small">Couldn't load comments: ${escapeHTML(e.message)}</li>`;
+  }
+}
+
+function closeDrawer () {
+  const d = document.getElementById('drawer');
+  d.classList.add('hidden');
+  d.setAttribute('aria-hidden', 'true');
+  STATE.drawer = { number: null, comments: null };
+}
+
+function bindDrawer () {
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  document.querySelector('.drawer-backdrop').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('drawer').classList.contains('hidden')) {
+      closeDrawer();
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Sidebar/UI for new routes + avatars + UI-vs-Backend donut +
+   Type breakdown tiles + "Assigned to me" toggle wiring.
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderAvatarStack (assignees, max = 2) {
+  if (!assignees || !assignees.length) return '<span class="avatar-stack empty"></span>';
+  const items = assignees.slice(0, max);
+  const rest = assignees.length - items.length;
+  const stack = items.map((a, i) =>
+    `<img class="avatar sm" src="${a.avatar}&s=40" alt="${escapeAttr(a.login)}" title="${escapeAttr(a.login)}" style="z-index:${10 - i}">`
+  ).join('');
+  const more = rest > 0 ? `<span class="avatar-more">+${rest}</span>` : '';
+  return `<span class="avatar-stack">${stack}${more}</span>`;
+}
+
+function renderChartSurface (filtered) {
+  const open = filtered.filter(i => i.state === 'open');
+  const c = { ui: 0, backend: 0, fullstack: 0, unclassified: 0 };
+  for (const i of open) c[i.surface] = (c[i.surface] || 0) + 1;
+  const labels = ['UI', 'Backend', 'Full-stack', 'Unclassified'];
+  const data = [c.ui, c.backend, c.fullstack, c.unclassified];
+  const colors = [COLOR.accent, COLOR.blue, COLOR.purple, COLOR.dim];
+  chartDestroy('chartSurface');
+  CHARTS.chartSurface = new Chart(document.getElementById('chartSurface'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: COLOR.bg, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } },
+      },
+    },
+  });
+}
+
+function renderTypeTiles (filtered) {
+  const open = filtered.filter(i => i.state === 'open');
+  const c = { bug: 0, feat: 0, chore: 0, docs: 0 };
+  for (const i of open) if (i.kind_type) c[i.kind_type]++;
+  document.getElementById('kpiBug').textContent   = c.bug;
+  document.getElementById('kpiFeat').textContent  = c.feat;
+  document.getElementById('kpiChore').textContent = c.chore;
+  document.getElementById('kpiDocs').textContent  = c.docs;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Wire the new sidebar VIEWS section + module deep-links + board
+   surface pill + assigned-to-me toggle + drawer + new-issue form.
+   ═══════════════════════════════════════════════════════════════ */
+
+function bindNewSidebar () {
+  document.querySelectorAll('.view-row').forEach(b => {
+    b.addEventListener('click', () => navigate(b.dataset.route));
+  });
+}
+
+function bindBoardSurface () {
+  document.getElementById('boardSurface')?.addEventListener('click', e => {
+    const b = e.target.closest('.pill'); if (!b) return;
+    FILTERS.surface = b.dataset.surf;
+    document.querySelectorAll('#boardSurface .pill').forEach(p => p.classList.remove('active'));
+    b.classList.add('active');
+    renderBoard();
+  });
+}
+
+function bindAssignedToMe () {
+  document.getElementById('assignedToMe')?.addEventListener('change', e => {
+    FILTERS.assignedToMe = e.target.checked;
+    PAGE.idx = 0; render();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Boot — replaces the previous IIFE at the bottom of the file.
+   ═══════════════════════════════════════════════════════════════ */
 
 (async () => {
   bindFilters();
   bindSettings();
+  bindNewSidebar();
+  bindBoardSurface();
+  bindAssignedToMe();
+  bindNewIssueForm();
+  bindDrawer();
+  window.addEventListener('hashchange', handleRoute);
   await loadData();
-  render();
+  await handleRoute();          // dispatches to active view; calls render()
 })();
