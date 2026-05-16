@@ -90,6 +90,64 @@ function setPAT (v) {
   else localStorage.removeItem(PAT_KEY);
 }
 
+/* ── Theme switcher ──────────────────────────────────────────────
+   Three palettes:
+     • cockpit (default, dense dark cyan — matches the V2 frontend)
+     • dark    (neutral grayscale, high contrast)
+     • ocean   (teal-blue, vibrant)
+   Apply by setting `data-theme` on <html>. CSS overrides in styles.css
+   pick it up. Persisted via localStorage. Charts use the COLOR /
+   CHART_PALETTE objects, which we refresh from CSS variables on every
+   theme change so chart strokes/fills track the active palette. */
+
+const THEME_KEY = 'minnala-dashboard:theme';
+const THEMES = ['cockpit', 'dark', 'ocean'];
+
+function getTheme () {
+  const t = localStorage.getItem(THEME_KEY);
+  return THEMES.includes(t) ? t : 'cockpit';
+}
+
+function setTheme (t) {
+  if (!THEMES.includes(t)) t = 'cockpit';
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(THEME_KEY, t);
+  document.querySelectorAll('.theme-pill').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === t);
+  });
+  refreshThemeColors();
+  // Re-render existing charts/cards so they pick up the new palette.
+  if (typeof render === 'function' && STATE.issues.length) render();
+}
+
+function refreshThemeColors () {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name) => (cs.getPropertyValue(name) || '').trim();
+  COLOR.accent = v('--color-accent') || COLOR.accent;
+  COLOR.alert  = v('--color-alert')  || COLOR.alert;
+  COLOR.loss   = v('--color-loss')   || COLOR.loss;
+  COLOR.blue   = v('--color-blue')   || COLOR.blue;
+  COLOR.purple = v('--color-purple') || COLOR.purple;
+  COLOR.cyan   = v('--color-cyan')   || COLOR.cyan;
+  COLOR.brand  = v('--color-brand')  || COLOR.brand;
+  COLOR.dim    = v('--color-text-dim') || COLOR.dim;
+  COLOR.bg     = v('--color-bg')     || COLOR.bg;
+  COLOR.text   = v('--color-text-mid') || COLOR.text;
+  CHART_PALETTE.length = 0;
+  CHART_PALETTE.push(
+    COLOR.accent, COLOR.blue, COLOR.alert, COLOR.purple,
+    COLOR.cyan,   COLOR.loss, COLOR.brand, COLOR.dim,
+  );
+}
+
+function bindTheme () {
+  // Apply current theme attribute before any chart renders.
+  setTheme(getTheme());
+  document.querySelectorAll('.theme-pill').forEach(b => {
+    b.addEventListener('click', () => setTheme(b.dataset.theme));
+  });
+}
+
 async function fetchPage (page, token) {
   const url = `https://api.github.com/repos/${REPO}/issues`
     + `?state=all&per_page=100&page=${page}&sort=updated&direction=desc`;
@@ -406,7 +464,8 @@ async function loadData () {
   setLoadingUI();
   try {
     if (!STATE.taxonomy) {
-      const taxResp = await fetch('taxonomy.json');
+      // Cache-bust so taxonomy edits land without forcing users to hard-refresh.
+      const taxResp = await fetch('taxonomy.json?v=2026-05-17a');
       STATE.taxonomy = await taxResp.json();
     }
     const token = getPAT();
@@ -655,9 +714,16 @@ function renderKPIs (filtered) {
   document.getElementById('kpiP0').textContent         = cnt('p0');
   document.getElementById('kpiP1').textContent         = cnt('p1');
   document.getElementById('kpiP2').textContent         = cnt('p2');
-  document.getElementById('kpiOpened7d').textContent   = src.filter(i => within(i.created_at, 7)).length;
-  document.getElementById('kpiClosed7d').textContent   = src.filter(i => within(i.closed_at,  7)).length;
-  document.getElementById('kpiMerged7d').textContent   = src.filter(i => i.merged && within(i.merged_at, 7)).length;
+  // 7-day activity tiles: they show platform velocity ("how many closed
+  // / merged in the last week"). Reading from `src` (status-filtered)
+  // hid every closed/merged record when the default Status=Open pill is
+  // active — the tiles read 0 even when many records existed. Re-run
+  // the filter without the Status constraint so all other dimensions
+  // (module / priority / age / search) still apply.
+  const activity = applyFilters(STATE.issues || [], { skipStatus: true });
+  document.getElementById('kpiOpened7d').textContent   = activity.filter(i => within(i.created_at, 7)).length;
+  document.getElementById('kpiClosed7d').textContent   = activity.filter(i => within(i.closed_at,  7)).length;
+  document.getElementById('kpiMerged7d').textContent   = activity.filter(i => i.merged && within(i.merged_at, 7)).length;
 }
 
 /* ── Charts ───────────────────────────────────────────────────── */
@@ -1904,6 +1970,7 @@ function bindAssignedToMe () {
    ═══════════════════════════════════════════════════════════════ */
 
 (async () => {
+  bindTheme();
   bindFilters();
   bindSettings();
   bindNewSidebar();

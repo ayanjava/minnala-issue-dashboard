@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-16c">
+<link rel="stylesheet" href="styles.css?v=2026-05-17a">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -19,6 +19,11 @@
     <span class="repo-link"><a id="repoLink" href="https://github.com/ayanjava/0dte-v2/issues" target="_blank" rel="noopener">ayanjava/0dte-v2 →</a></span>
   </div>
   <div class="status">
+    <span class="theme-switcher" id="themeSwitcher" role="group" aria-label="Theme">
+      <button class="theme-pill" data-theme="cockpit" title="Cockpit — dense dark cyan (default)">Cockpit</button>
+      <button class="theme-pill" data-theme="dark"    title="Dark — neutral grayscale">Dark</button>
+      <button class="theme-pill" data-theme="ocean"   title="Ocean — teal-blue vibrant">Ocean</button>
+    </span>
     <span id="rateLimit" class="muted"></span>
     <span id="lastUpdated" class="muted">loading…</span>
     <button id="settingsBtn" class="btn-icon" title="Settings (PAT for higher rate limit)">⚙</button>
@@ -457,6 +462,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-16c"></script>
+<script src="app.js?v=2026-05-17a"></script>
 </body>
 </html>
