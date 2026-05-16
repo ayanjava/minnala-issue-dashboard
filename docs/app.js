@@ -204,8 +204,31 @@ function renderKPIs (filtered) {
 
 /* ── Charts ───────────────────────────────────────────────────── */
 
-const CHART_PALETTE = ['#10b981','#60a5fa','#f59e0b','#a78bfa','#22d3ee',
-                       '#f87171','#fbbf24','#ec4899','#34d399','#94a3b8'];
+// OKLCH palette mirroring frontend/src/design-system/theme.css tokens.
+// Chart.js v4 accepts OKLCH color strings directly.
+const CHART_PALETTE = [
+  'oklch(0.78 0.20 145)',   // accent (green)
+  'oklch(0.72 0.14 240)',   // blue
+  'oklch(0.78 0.18 70)',    // alert (amber)
+  'oklch(0.72 0.14 300)',   // purple
+  'oklch(0.78 0.12 200)',   // cyan
+  'oklch(0.68 0.20 22)',    // loss (red)
+  'oklch(0.82 0.16 80)',    // brand (gold)
+  'oklch(0.62 0.04 220)',   // text-dim (slate)
+];
+const COLOR = {
+  accent: 'oklch(0.78 0.20 145)',
+  alert:  'oklch(0.78 0.18 70)',
+  loss:   'oklch(0.68 0.20 22)',
+  blue:   'oklch(0.72 0.14 240)',
+  purple: 'oklch(0.72 0.14 300)',
+  cyan:   'oklch(0.78 0.12 200)',
+  brand:  'oklch(0.82 0.16 80)',
+  dim:    'oklch(0.62 0.04 220)',
+  bg:     'oklch(0.13 0.020 240)',
+  text:   'oklch(0.80 0.060 220)',
+  grid:   'oklch(0.32 0.040 240 / 0.4)',
+};
 
 function chartDestroy (id) {
   if (CHARTS[id]) { CHARTS[id].destroy(); CHARTS[id] = null; }
@@ -227,12 +250,13 @@ function renderChartModule (filtered) {
     type: 'doughnut',
     data: {
       labels: displayLabels,
-      datasets: [{ data, backgroundColor: colors, borderColor: '#0a0a0f', borderWidth: 2 }],
+      datasets: [{ data, backgroundColor: colors, borderColor: COLOR.bg, borderWidth: 2 }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { color: '#a0a0b8', font: { size: 11 } } },
+        legend: { position: 'right',
+                  labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } },
         tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } },
       },
     },
@@ -253,20 +277,25 @@ function renderChartPriorityStack (filtered) {
     data: {
       labels,
       datasets: [
-        { label: 'P0', data: p0, backgroundColor: '#ef4444' },
-        { label: 'P1', data: p1, backgroundColor: '#f59e0b' },
-        { label: 'P2', data: p2, backgroundColor: '#60a5fa' },
-        { label: '∅',  data: np, backgroundColor: '#6b7280' },
+        { label: 'P0', data: p0, backgroundColor: COLOR.loss },
+        { label: 'P1', data: p1, backgroundColor: COLOR.alert },
+        { label: 'P2', data: p2, backgroundColor: COLOR.blue },
+        { label: '∅',  data: np, backgroundColor: COLOR.dim },
       ],
     },
     options: {
       responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       scales: {
-        x: { stacked: true, ticks: { color: '#a0a0b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { stacked: true, ticks: { color: '#a0a0b8' }, grid: { display: false } },
+        x: { stacked: true,
+             ticks: { color: COLOR.text, font: { family: 'Inter' } },
+             grid:  { color: COLOR.grid } },
+        y: { stacked: true,
+             ticks: { color: COLOR.text, font: { family: 'Inter' } },
+             grid:  { display: false } },
       },
       plugins: {
-        legend: { position: 'bottom', labels: { color: '#a0a0b8', font: { size: 11 } } },
+        legend: { position: 'bottom',
+                  labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } },
       },
     },
   });
@@ -282,15 +311,18 @@ function renderChartTrend () {
       labels: t.map(d => d.date.slice(5)),
       datasets: [
         { label: 'Open count', data: t.map(d => d.open),
-          borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)',
+          borderColor: COLOR.accent,
+          backgroundColor: 'oklch(0.78 0.20 145 / 0.14)',  // accent-soft
           fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
       ],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { ticks: { color: '#a0a0b8', maxTicksLimit: 12 }, grid: { display: false } },
-        y: { ticks: { color: '#a0a0b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        x: { ticks: { color: COLOR.text, font: { family: 'Inter' }, maxTicksLimit: 12 },
+             grid:  { display: false } },
+        y: { ticks: { color: COLOR.text, font: { family: 'Inter' } },
+             grid:  { color: COLOR.grid } },
       },
       plugins: { legend: { display: false } },
     },
@@ -313,13 +345,15 @@ function renderChartAge (filtered) {
     data: {
       labels: Object.keys(b),
       datasets: [{ label: 'Open issues', data: Object.values(b),
-                   backgroundColor: ['#34d399','#60a5fa','#f59e0b','#ef4444'] }],
+                   backgroundColor: [COLOR.accent, COLOR.blue, COLOR.alert, COLOR.loss] }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { ticks: { color: '#a0a0b8' }, grid: { display: false } },
-        y: { ticks: { color: '#a0a0b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        x: { ticks: { color: COLOR.text, font: { family: 'Inter' } },
+             grid:  { display: false } },
+        y: { ticks: { color: COLOR.text, font: { family: 'Inter' } },
+             grid:  { color: COLOR.grid } },
       },
       plugins: { legend: { display: false } },
     },

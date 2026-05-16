@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-16T15:50:21+00:00",
+  "generated_at": "2026-05-16T16:01:02+00:00",
   "repo": "ayanjava/0dte-v2",
   "totals": {
     "total": 1082,
@@ -251,6 +251,26 @@
       "comments": 5
     },
     {
+      "number": 590,
+      "title": "[epic/p1] Phase-1-extended remaining items + \u03b1-full migration execution + open decisions",
+      "state": "open",
+      "labels": [
+        "p1",
+        "epic",
+        "proved",
+        "proved-src"
+      ],
+      "priority": "p1",
+      "module": "backend-core",
+      "submodule": "storage",
+      "url": "https://github.com/ayanjava/0dte-v2/issues/590",
+      "created_at": "2026-04-20T15:55:21Z",
+      "updated_at": "2026-05-12T20:13:11Z",
+      "closed_at": null,
+      "age_days": 26,
+      "comments": 3
+    },
+    {
       "number": 535,
       "title": "[infra/p0] Postgres + Redis migration on EC2 \u2014 blocks MU1 (\u03b1-full scope)",
       "state": "open",
@@ -368,26 +388,6 @@
       "closed_at": null,
       "age_days": 25,
       "comments": 4
-    },
-    {
-      "number": 590,
-      "title": "[epic/p1] Phase-1-extended remaining items + \u03b1-full migration execution + open decisions",
-      "state": "open",
-      "labels": [
-        "p1",
-        "epic",
-        "proved",
-        "proved-src"
-      ],
-      "priority": "p1",
-      "module": "backend-core",
-      "submodule": "storage",
-      "url": "https://github.com/ayanjava/0dte-v2/issues/590",
-      "created_at": "2026-04-20T15:55:21Z",
-      "updated_at": "2026-05-12T20:13:11Z",
-      "closed_at": null,
-      "age_days": 25,
-      "comments": 3
     }
   ],
   "trend_90d": [
@@ -943,7 +943,7 @@
       "id": "frontend",
       "label": "Frontend (UI)",
       "icon": "\ud83c\udfa8",
-      "color": "#34d399",
+      "color": "oklch(0.78 0.20 145)",
       "open": 16,
       "submodules": [
         {
@@ -976,7 +976,7 @@
       "id": "backend-core",
       "label": "Backend Core",
       "icon": "\u2699\ufe0f",
-      "color": "#60a5fa",
+      "color": "oklch(0.72 0.14 240)",
       "open": 33,
       "submodules": [
         {
@@ -1015,7 +1015,7 @@
       "id": "brokers",
       "label": "Brokers & Streaming",
       "icon": "\ud83d\udce1",
-      "color": "#f59e0b",
+      "color": "oklch(0.78 0.18 70)",
       "open": 8,
       "submodules": [
         {
@@ -1054,7 +1054,7 @@
       "id": "testing",
       "label": "Testing & QA",
       "icon": "\ud83e\uddea",
-      "color": "#a78bfa",
+      "color": "oklch(0.72 0.14 300)",
       "open": 18,
       "submodules": [
         {
@@ -1099,7 +1099,7 @@
       "id": "tech-debt",
       "label": "Tech Debt & Refactor",
       "icon": "\ud83e\uddf9",
-      "color": "#9ca3af",
+      "color": "oklch(0.62 0.04 220)",
       "open": 14,
       "submodules": [
         {
@@ -1132,7 +1132,7 @@
       "id": "infra",
       "label": "Infra & Deploy",
       "icon": "\ud83d\ude80",
-      "color": "#22d3ee",
+      "color": "oklch(0.78 0.12 200)",
       "open": 5,
       "submodules": [
         {
@@ -1165,7 +1165,7 @@
       "id": "security",
       "label": "Security",
       "icon": "\ud83d\udd12",
-      "color": "#f87171",
+      "color": "oklch(0.68 0.20 22)",
       "open": 1,
       "submodules": [
         {
@@ -1180,7 +1180,7 @@
       "id": "docs",
       "label": "Documentation",
       "icon": "\ud83d\udcda",
-      "color": "#fbbf24",
+      "color": "oklch(0.82 0.16 80)",
       "open": 1,
       "submodules": [
         {
@@ -1195,7 +1195,7 @@
       "id": "uncategorized",
       "label": "Uncategorized",
       "icon": "\u2753",
-      "color": "#6b7280",
+      "color": "oklch(0.55 0.01 250)",
       "open": 3,
       "submodules": [
         {

@@ -6,7 +6,7 @@
       "id": "frontend",
       "label": "Frontend (UI)",
       "icon": "🎨",
-      "color": "#34d399",
+      "color": "oklch(0.78 0.20 145)",
       "submodules": [
         {
           "id": "ui-v2",
@@ -44,7 +44,7 @@
       "id": "backend-core",
       "label": "Backend Core",
       "icon": "⚙️",
-      "color": "#60a5fa",
+      "color": "oklch(0.72 0.14 240)",
       "submodules": [
         {
           "id": "auth",
@@ -90,7 +90,7 @@
       "id": "brokers",
       "label": "Brokers & Streaming",
       "icon": "📡",
-      "color": "#f59e0b",
+      "color": "oklch(0.78 0.18 70)",
       "submodules": [
         {
           "id": "tiger",
@@ -133,7 +133,7 @@
       "id": "testing",
       "label": "Testing & QA",
       "icon": "🧪",
-      "color": "#a78bfa",
+      "color": "oklch(0.72 0.14 300)",
       "submodules": [
         {
           "id": "pytest",
@@ -183,7 +183,7 @@
       "id": "tech-debt",
       "label": "Tech Debt & Refactor",
       "icon": "🧹",
-      "color": "#9ca3af",
+      "color": "oklch(0.62 0.04 220)",
       "submodules": [
         {
           "id": "mypy",
@@ -219,7 +219,7 @@
       "id": "infra",
       "label": "Infra & Deploy",
       "icon": "🚀",
-      "color": "#22d3ee",
+      "color": "oklch(0.78 0.12 200)",
       "submodules": [
         {
           "id": "aws",
@@ -255,7 +255,7 @@
       "id": "security",
       "label": "Security",
       "icon": "🔒",
-      "color": "#f87171",
+      "color": "oklch(0.68 0.20 22)",
       "submodules": [
         {
           "id": "security-general",
@@ -271,7 +271,7 @@
       "id": "docs",
       "label": "Documentation",
       "icon": "📚",
-      "color": "#fbbf24",
+      "color": "oklch(0.82 0.16 80)",
       "submodules": [
         {
           "id": "docs-general",
@@ -286,7 +286,7 @@
       "id": "uncategorized",
       "label": "Uncategorized",
       "icon": "❓",
-      "color": "#6b7280",
+      "color": "oklch(0.55 0.01 250)",
       "submodules": [
         {
           "id": "uncategorized",
