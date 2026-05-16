@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-17b">
+<link rel="stylesheet" href="styles.css?v=2026-05-17c">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -20,9 +20,9 @@
   </div>
   <div class="status">
     <span class="theme-switcher" id="themeSwitcher" role="group" aria-label="Theme">
-      <button class="theme-pill" data-theme="cockpit" title="Cockpit — dense dark cyan (default)">Cockpit</button>
-      <button class="theme-pill" data-theme="dark"    title="Dark — neutral grayscale">Dark</button>
-      <button class="theme-pill" data-theme="ocean"   title="Ocean — teal-blue vibrant">Ocean</button>
+      <button class="theme-pill" data-theme="cockpit" title="Cockpit — dense dark cyan (default)" aria-label="Cockpit theme">🛰️</button>
+      <button class="theme-pill" data-theme="dark"    title="Dark — neutral grayscale"            aria-label="Dark theme">🌑</button>
+      <button class="theme-pill" data-theme="ocean"   title="Ocean — teal-blue vibrant"           aria-label="Ocean theme">🌊</button>
     </span>
     <span id="rateLimit" class="muted"></span>
     <span id="lastUpdated" class="muted">loading…</span>
@@ -66,6 +66,7 @@
         <li><button class="view-row" data-route="sprints">  🏁 <span class="view-label">Sprints</span></button></li>
         <li><button class="view-row" data-route="activity"> 📡 <span class="view-label">Activity</span></button></li>
         <li><button class="view-row" data-route="commits">  💾 <span class="view-label">Commits</span></button></li>
+        <li><button class="view-row" data-route="reports">  📋 <span class="view-label">Reports</span></button></li>
         <li><button class="view-row primary" data-route="new">＋ <span class="view-label">New issue</span></button></li>
       </ul>
     </div>
@@ -159,14 +160,15 @@
            use icon-only labels with hover tooltips so they never
            truncate to '...' on narrow viewports. -->
       <section class="kpis" id="kpis">
-        <div class="kpi" title="Open issues"><div class="k-label">Open issues</div>     <div class="k-val" id="kpiOpenIssues">—</div></div>
+        <div class="kpi" title="Open issues (state=open, not PR)"><div class="k-label">Open issues</div>     <div class="k-val" id="kpiOpenIssues">—</div></div>
+        <div class="kpi" title="Closed issues — running total since project start. Most are old / superseded; only what's in 'Open issues' is current work."><div class="k-label">Closed (all)</div><div class="k-val" id="kpiClosedAll">—</div></div>
         <div class="kpi" title="Open pull requests"><div class="k-label">Open PRs</div> <div class="k-val" id="kpiOpenPRs">—</div></div>
         <div class="kpi p0" title="P0 — broken user flow / security risk"><div class="k-label">P0</div> <div class="k-val" id="kpiP0">—</div></div>
         <div class="kpi p1" title="P1 — degraded / silent failure"><div class="k-label">P1</div>        <div class="k-val" id="kpiP1">—</div></div>
         <div class="kpi p2" title="P2 — hygiene / tech-debt"><div class="k-label">P2</div>              <div class="k-val" id="kpiP2">—</div></div>
-        <div class="kpi" title="Opened in last 7 days"><div class="k-label icon-only">🆕</div>          <div class="k-val" id="kpiOpened7d">—</div></div>
+        <div class="kpi" title="Opened in last 7 days (open + already-closed)"><div class="k-label icon-only">🆕</div>          <div class="k-val" id="kpiOpened7d">—</div></div>
         <div class="kpi" title="Closed in last 7 days"><div class="k-label icon-only">✅</div>           <div class="k-val" id="kpiClosed7d">—</div></div>
-        <div class="kpi" title="Merged in last 7 days"><div class="k-label icon-only">🔀</div>           <div class="k-val" id="kpiMerged7d">—</div></div>
+        <div class="kpi" title="Merged PRs in last 7 days"><div class="k-label icon-only">🔀</div>           <div class="k-val" id="kpiMerged7d">—</div></div>
       </section>
 
       <!-- Five-proof tiles. Every issue must declare a state for each
@@ -214,6 +216,10 @@
         <div class="card chart-card chart-oldest">
           <div class="card-head">🕰️ Oldest open <span class="muted">(top 10)</span></div>
           <ul id="oldestList" class="oldest-list"></ul>
+        </div>
+        <div class="card chart-card chart-stack">
+          <div class="card-head">5-proof per dimension <span class="muted">(all issues)</span></div>
+          <div class="chart-wrap"><canvas id="chartProofDims"></canvas></div>
         </div>
       </section>
 
@@ -417,6 +423,78 @@
     </div><!-- /view-activity -->
 
     <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Reports
+         CI-emitted artefacts fetched live from
+         https://raw.githubusercontent.com/ayanjava/0dte-v2/main/reports/*.json
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-reports">
+      <section class="kpis kpis-reports">
+        <div class="kpi" title="Overall completion = closed / (open + closed). Excludes PRs."><div class="k-label">🎯 Overall</div>     <div class="k-val" id="rptOverallPct">—</div></div>
+        <div class="kpi" title="Tests passing (latest CI run)"><div class="k-label">🧪 Tests</div>                          <div class="k-val" id="rptTestPct">—</div></div>
+        <div class="kpi" title="Line coverage (latest CI run)"><div class="k-label">📈 Coverage</div>                       <div class="k-val" id="rptCoveragePct">—</div></div>
+        <div class="kpi" title="SonarQube quality-gate result"><div class="k-label">🛡️ Quality gate</div>                    <div class="k-val" id="rptQualityGate">—</div></div>
+        <div class="kpi" title="Issues with all 5 proofs supplied or N/A"><div class="k-label">✅ Proved</div>               <div class="k-val" id="rptProvedPct">—</div></div>
+        <div class="kpi" title="Last refresh of reports JSON from GitHub raw"><div class="k-label">⏱️ Updated</div>           <div class="k-val" id="rptUpdated">—</div></div>
+      </section>
+
+      <section class="charts">
+        <div class="card chart-card">
+          <div class="card-head">Module progress <span class="muted">(closed / total)</span></div>
+          <div class="chart-wrap"><canvas id="rptModuleProgress"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head">Coverage by package <span class="muted">(top 10 by LOC)</span></div>
+          <div class="chart-wrap"><canvas id="rptCoverageByModule"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head">🧪 Test breakdown <span class="muted">(latest run)</span></div>
+          <div class="chart-wrap"><canvas id="rptTestBreakdown"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head">🛡️ SonarQube findings <span class="muted">(latest scan)</span></div>
+          <div class="chart-wrap"><canvas id="rptSonarFindings"></canvas></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <span>📋 Report sources</span>
+          <span class="muted" id="rptSourcesNote"></span>
+          <span class="card-head-spacer"></span>
+          <button id="rptRefreshBtn" class="btn-ghost">↻ Re-fetch</button>
+        </div>
+        <ul id="rptSourcesList" class="reports-sources"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <span>❌ Failing tests</span>
+          <span class="muted" id="rptFailingNote"></span>
+        </div>
+        <ul id="rptFailingList" class="reports-failing"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <span>🛡️ Module completion + linked issues</span>
+          <span class="muted">click a row to filter the Dashboard by that module</span>
+        </div>
+        <table id="rptModuleTable" class="reports-module-table">
+          <thead><tr>
+            <th>Module</th>
+            <th class="num">Open</th>
+            <th class="num">Closed</th>
+            <th class="num">Done %</th>
+            <th class="num">Tests pass</th>
+            <th class="num">Coverage</th>
+            <th class="num">Needs proof</th>
+          </tr></thead>
+          <tbody id="rptModuleTbody"></tbody>
+        </table>
+      </section>
+    </div><!-- /view-reports -->
+
+    <!-- ═══════════════════════════════════════════════════════════
          VIEW: Commits
          ═══════════════════════════════════════════════════════════ -->
     <div class="view hidden" id="view-commits">
@@ -473,6 +551,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-17b"></script>
+<script src="app.js?v=2026-05-17c"></script>
 </body>
 </html>

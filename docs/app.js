@@ -28,6 +28,7 @@ const STATE = {
   milestones: null,      // lazy-loaded
   events:     null,      // lazy-loaded
   commits:    null,      // lazy-loaded
+  reports:    null,      // lazy-loaded (Reports view)
   assignees:  null,      // lazy-loaded (collaborators)
   drawer:     { number: null, comments: null },
 };
@@ -509,7 +510,7 @@ async function loadData () {
   try {
     if (!STATE.taxonomy) {
       // Cache-bust so taxonomy edits land without forcing users to hard-refresh.
-      const taxResp = await fetch('taxonomy.json?v=2026-05-17b');
+      const taxResp = await fetch('taxonomy.json?v=2026-05-17c');
       STATE.taxonomy = await taxResp.json();
     }
     const token = getPAT();
@@ -762,6 +763,11 @@ function renderKPIs (filtered) {
   };
   document.getElementById('kpiOpenIssues').textContent = open.filter(i => !i.is_pr).length;
   document.getElementById('kpiOpenPRs').textContent    = open.filter(i =>  i.is_pr).length;
+  // Closed (all-time) ignores the status filter: shows the running total
+  // since project start. Helps explain the open/closed disparity — most
+  // closed records are old/superseded work, not current backlog.
+  document.getElementById('kpiClosedAll').textContent =
+    (STATE.issues || []).filter(i => !i.is_pr && (i.state === 'closed' || i.state === 'merged')).length;
   document.getElementById('kpiP0').textContent         = cnt('p0');
   document.getElementById('kpiP1').textContent         = cnt('p1');
   document.getElementById('kpiP2').textContent         = cnt('p2');
@@ -1013,6 +1019,41 @@ function renderProofDots (p) {
   return `<span class="proof-dots" title="${title}">${dots}</span>`;
 }
 
+function renderChartProofDims (scope) {
+  const canvas = document.getElementById('chartProofDims');
+  if (!canvas) return;
+  const counts = PROOF_DIMS.map(d => {
+    let supplied = 0, na = 0, missing = 0;
+    for (const i of scope) {
+      const st = i.proof?.dims?.[d];
+      if (st === 'supplied') supplied++;
+      else if (st === 'na')  na++;
+      else missing++;
+    }
+    return { supplied, na, missing };
+  });
+  chartDestroy('chartProofDims');
+  CHARTS.chartProofDims = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: PROOF_DIMS.map(d => d.toUpperCase()),
+      datasets: [
+        { label: 'Supplied', data: counts.map(c => c.supplied), backgroundColor: COLOR.accent },
+        { label: 'N/A',      data: counts.map(c => c.na),       backgroundColor: COLOR.dim },
+        { label: 'Missing',  data: counts.map(c => c.missing),  backgroundColor: COLOR.loss },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      scales: {
+        x: { stacked: true, ticks: { color: COLOR.text }, grid: { color: COLOR.grid } },
+        y: { stacked: true, ticks: { color: COLOR.text }, grid: { display: false } },
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+    },
+  });
+}
+
 function renderProofKPIs (scope) {
   if (!scope || !scope.length) return;
   let proved = 0, partial = 0, needs = 0, totalCovered = 0;
@@ -1117,6 +1158,7 @@ function render () {
     renderChartPriorityStack(filtered);
     renderChartTrend();
     renderChartAge(filtered);
+    renderChartProofDims(STATE.issues || []);
     renderTable(filtered);
   }
   // Board re-renders too if it's the active view (e.g. after filter change).
@@ -1266,7 +1308,7 @@ function createIssue (payload) {
    Router — hash-based, no library.
    ═══════════════════════════════════════════════════════════════ */
 
-const VIEWS = ['dashboard', 'board', 'sprints', 'new', 'activity', 'commits'];
+const VIEWS = ['dashboard', 'board', 'sprints', 'new', 'activity', 'commits', 'reports'];
 
 function parseHash () {
   const raw = (location.hash || '').replace(/^#\/?/, '');
@@ -1312,6 +1354,7 @@ async function renderActiveView () {
     case 'sprints':  await renderSprintsView(); break;
     case 'activity': await renderActivityView(); break;
     case 'commits':  await renderCommitsView(); break;
+    case 'reports':  await renderReportsView(); break;
     case 'new':      renderNewIssueForm(); break;
     case 'dashboard':
     default:                       // dashboard renders inside render()
@@ -1649,6 +1692,294 @@ async function renderCommitsView () {
         <span class="muted commit-when">${fmtRelative(date)}</span>
       </li>`;
   }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View: Reports — pulls CI-emitted JSON from 0dte-v2/reports/ so the
+   dashboard becomes the single pane for "what's working / what's
+   broken / what's left to develop." Schemas live in
+   ayanjava/0dte-v2:reports/README.md.
+   ═══════════════════════════════════════════════════════════════ */
+
+// 0dte-v2 is private, so raw.githubusercontent.com 404s without auth.
+// Use the GitHub Contents API with `Accept: application/vnd.github.raw`
+// which returns the file body directly and respects the PAT the user
+// already pasted into the ⚙ Settings panel.
+const REPORT_API_BASE  = `https://api.github.com/repos/${REPO}/contents/reports`;
+const REPORT_HUMAN_BASE = `https://github.com/${REPO}/blob/main/reports`;
+
+const REPORT_FILES = [
+  { key: 'progress',     name: 'progress.json',     desc: 'Issue counts + 5-proof status per module' },
+  { key: 'tests',        name: 'test-summary.json', desc: 'pytest --json-report output' },
+  { key: 'sonar',        name: 'sonar-summary.json',desc: 'SonarQube quality-gate + metrics' },
+  { key: 'coverage',     name: 'coverage.json',     desc: 'coverage.py per-package line coverage' },
+  { key: 'buildStatus',  name: 'build-status.json', desc: 'pre-commit + GH-actions check results' },
+];
+
+async function fetchReports () {
+  const out = {};
+  const errs = {};
+  const token = getPAT();
+  await Promise.all(REPORT_FILES.map(async f => {
+    try {
+      const headers = {
+        'Accept': 'application/vnd.github.raw',
+        'X-GitHub-Api-Version': '2022-11-28',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const r = await fetch(`${REPORT_API_BASE}/${f.name}?ref=main`, { headers });
+      if (!r.ok) {
+        errs[f.key] = `HTTP ${r.status}` +
+          (r.status === 404 && !token ? ' — paste a PAT in ⚙ Settings (repo is private)' : '');
+        return;
+      }
+      out[f.key] = { fetched_at: new Date().toISOString(), data: await r.json() };
+    } catch (e) { errs[f.key] = e.message; }
+  }));
+  return { reports: out, errors: errs };
+}
+
+async function renderReportsView () {
+  const sourcesList = document.getElementById('rptSourcesList');
+  if (!STATE.reports) {
+    sourcesList.innerHTML = '<li class="muted">Fetching reports…</li>';
+    STATE.reports = await fetchReports();
+  }
+  renderReportsKPIs(STATE.reports);
+  renderReportsCharts(STATE.reports);
+  renderReportsSources(STATE.reports);
+  renderReportsFailing(STATE.reports);
+  renderReportsModuleTable(STATE.reports);
+}
+
+function renderReportsKPIs ({ reports }) {
+  const prog = reports.progress?.data;
+  const tests = reports.tests?.data;
+  const sonar = reports.sonar?.data;
+  const cov   = reports.coverage?.data;
+
+  document.getElementById('rptOverallPct').textContent =
+    prog?.totals?.done_pct != null ? prog.totals.done_pct + '%' : '—';
+  document.getElementById('rptTestPct').textContent =
+    tests?.summary?.pass_rate != null ? tests.summary.pass_rate + '%' :
+    tests?.summary?.passed != null && tests?.summary?.total
+      ? Math.round(tests.summary.passed / tests.summary.total * 100) + '%' : '—';
+  document.getElementById('rptCoveragePct').textContent =
+    cov?.overall_pct != null ? cov.overall_pct + '%' : '—';
+  document.getElementById('rptQualityGate').textContent =
+    sonar?.quality_gate || '—';
+  document.getElementById('rptProvedPct').textContent =
+    prog?.totals?.proved_pct != null ? prog.totals.proved_pct + '%' : '—';
+
+  const latest = Object.values(reports)
+    .map(r => r?.data?.generated_at).filter(Boolean).sort().pop();
+  document.getElementById('rptUpdated').textContent =
+    latest ? fmtRelative(latest) : '—';
+}
+
+function renderReportsCharts ({ reports }) {
+  // Module progress: open / closed stacked bar
+  const prog = reports.progress?.data;
+  if (prog?.by_module) {
+    const mods = Object.entries(prog.by_module)
+      .filter(([id]) => id !== 'uncategorized')
+      .sort((a, b) => (b[1].issues || 0) - (a[1].issues || 0));
+    const labels = mods.map(([, m]) => m.label || '');
+    chartDestroy('rptModuleProgress');
+    CHARTS.rptModuleProgress = new Chart(
+      document.getElementById('rptModuleProgress'),
+      {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Closed', data: mods.map(([, m]) => m.closed), backgroundColor: COLOR.accent },
+            { label: 'Open',   data: mods.map(([, m]) => m.open),   backgroundColor: COLOR.alert },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          scales: {
+            x: { stacked: true, ticks: { color: COLOR.text }, grid: { color: COLOR.grid } },
+            y: { stacked: true, ticks: { color: COLOR.text, autoSkip: false }, grid: { display: false } },
+          },
+          plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+        },
+      });
+  }
+
+  // Coverage by package (top 10 by LOC)
+  const cov = reports.coverage?.data;
+  const byPkg = cov?.by_package ? Object.entries(cov.by_package) : [];
+  if (byPkg.length) {
+    const top = byPkg
+      .map(([k, v]) => [k, v])
+      .sort((a, b) => (b[1].lines || 0) - (a[1].lines || 0))
+      .slice(0, 10);
+    chartDestroy('rptCoverageByModule');
+    CHARTS.rptCoverageByModule = new Chart(
+      document.getElementById('rptCoverageByModule'),
+      {
+        type: 'bar',
+        data: {
+          labels: top.map(([k]) => k),
+          datasets: [{ label: 'Coverage %', data: top.map(([, v]) => v.pct ?? 0),
+                       backgroundColor: COLOR.blue }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          scales: {
+            x: { min: 0, max: 100, ticks: { color: COLOR.text }, grid: { color: COLOR.grid } },
+            y: { ticks: { color: COLOR.text }, grid: { display: false } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      });
+  } else {
+    chartEmpty('rptCoverageByModule', 'No coverage.json data yet — wire `coverage json -o reports/coverage.json` into CI.');
+  }
+
+  // Test breakdown
+  const t = reports.tests?.data?.summary;
+  if (t && t.total) {
+    chartDestroy('rptTestBreakdown');
+    CHARTS.rptTestBreakdown = new Chart(
+      document.getElementById('rptTestBreakdown'),
+      {
+        type: 'doughnut',
+        data: {
+          labels: ['Passed', 'Failed', 'Skipped', 'Error', 'xfail'],
+          datasets: [{
+            data: [t.passed||0, t.failed||0, t.skipped||0, t.error||0, t.xfail||0],
+            backgroundColor: [COLOR.accent, COLOR.loss, COLOR.dim, COLOR.alert, COLOR.purple],
+            borderColor: COLOR.bg, borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'right', labels: { color: COLOR.text, font: { size: 11 } } } },
+        },
+      });
+  } else {
+    chartEmpty('rptTestBreakdown', 'No test-summary.json data yet — wire `pytest --json-report --json-report-file=reports/test-summary.json` into CI.');
+  }
+
+  // Sonar findings
+  const sm = reports.sonar?.data?.metrics;
+  if (sm && (sm.bugs != null || sm.code_smells != null)) {
+    chartDestroy('rptSonarFindings');
+    CHARTS.rptSonarFindings = new Chart(
+      document.getElementById('rptSonarFindings'),
+      {
+        type: 'bar',
+        data: {
+          labels: ['Bugs', 'Code smells', 'Vulnerabilities', 'Security hotspots'],
+          datasets: [{
+            data: [sm.bugs||0, sm.code_smells||0, sm.vulnerabilities||0, sm.security_hotspots||0],
+            backgroundColor: [COLOR.loss, COLOR.alert, COLOR.purple, COLOR.brand],
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          scales: {
+            x: { beginAtZero: true, ticks: { color: COLOR.text }, grid: { color: COLOR.grid } },
+            y: { ticks: { color: COLOR.text }, grid: { display: false } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      });
+  } else {
+    chartEmpty('rptSonarFindings', 'No sonar-summary.json data yet — export `/api/measures/component?metricKeys=…` and dump to reports/sonar-summary.json.');
+  }
+}
+
+function chartEmpty (canvasId, msg) {
+  chartDestroy(canvasId);
+  const c = document.getElementById(canvasId);
+  if (!c) return;
+  const wrap = c.parentElement;
+  wrap.innerHTML = `<div class="chart-empty muted">${escapeHTML(msg)}</div>`;
+}
+
+function renderReportsSources ({ reports, errors }) {
+  const list = document.getElementById('rptSourcesList');
+  list.innerHTML = REPORT_FILES.map(f => {
+    const r = reports[f.key];
+    const err = errors[f.key];
+    const status = r ? '✅ loaded' : (err ? `❌ ${err}` : '— missing');
+    const when = r?.data?.generated_at ? fmtRelative(r.data.generated_at) : '—';
+    const url = `${REPORT_HUMAN_BASE}/${f.name}`;
+    return `<li class="report-source-row">
+      <span class="rs-name"><a target="_blank" rel="noopener" href="${url}">${f.name}</a></span>
+      <span class="rs-desc muted">${escapeHTML(f.desc)}</span>
+      <span class="rs-status">${status}</span>
+      <span class="rs-when muted">${when}</span>
+    </li>`;
+  }).join('');
+  document.getElementById('rptSourcesNote').textContent =
+    `live from raw.githubusercontent.com/${REPO}/main/reports/`;
+}
+
+function renderReportsFailing ({ reports }) {
+  const list = document.getElementById('rptFailingList');
+  const fail = reports.tests?.data?.failures || [];
+  if (!fail.length) {
+    list.innerHTML = '<li class="muted">No failing tests in latest run.</li>';
+    document.getElementById('rptFailingNote').textContent = '';
+    return;
+  }
+  list.innerHTML = fail.slice(0, 50).map(f => `
+    <li class="report-failure-row">
+      <code class="rf-test">${escapeHTML(f.test || '?')}</code>
+      <span class="muted rf-mod">${escapeHTML(f.module || '')}</span>
+      <pre class="rf-error">${escapeHTML((f.error || '').slice(0, 600))}</pre>
+    </li>`).join('');
+  document.getElementById('rptFailingNote').textContent =
+    `${fail.length} failure${fail.length === 1 ? '' : 's'}`;
+}
+
+function renderReportsModuleTable ({ reports }) {
+  const tbody = document.getElementById('rptModuleTbody');
+  const prog = reports.progress?.data?.by_module || {};
+  const tests = reports.tests?.data?.by_module || {};
+  const cov   = reports.coverage?.data?.by_package || {};
+
+  // Match the dashboard's module ordering (taxonomy-driven).
+  const rows = STATE.modules
+    .filter(m => m.id !== 'uncategorized')
+    .map(m => {
+      const p = prog[m.id] || {};
+      const t = tests[m.id] || {};
+      // Coverage by_package keys are file paths — match by id prefix.
+      const c = Object.entries(cov).find(([k]) => k.includes(m.id)) || [null, {}];
+      const testPct = t.total
+        ? Math.round(((t.passed || 0) / t.total) * 100) + '%' : '—';
+      const covPct  = c[1].pct != null ? c[1].pct + '%' : '—';
+      return `<tr data-mod="${m.id}">
+        <td><span class="t-mod" style="color:${moduleColor(m.id)}">${escapeHTML(m.label)}</span></td>
+        <td class="num">${p.open ?? '—'}</td>
+        <td class="num">${p.closed ?? '—'}</td>
+        <td class="num">${p.done_pct != null ? p.done_pct + '%' : '—'}</td>
+        <td class="num">${testPct}</td>
+        <td class="num">${covPct}</td>
+        <td class="num">${p.needs_proof ?? '—'}</td>
+      </tr>`;
+    }).join('');
+  tbody.innerHTML = rows;
+  tbody.querySelectorAll('tr[data-mod]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      FILTERS.module = tr.dataset.mod;
+      FILTERS.submodule = null;
+      navigate('dashboard');
+    });
+  });
+}
+
+function bindReportsRefresh () {
+  document.getElementById('rptRefreshBtn')?.addEventListener('click', async () => {
+    STATE.reports = null;
+    await renderReportsView();
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2090,6 +2421,7 @@ function bindAssignedToMe () {
   bindAssignedToMe();
   bindTypeTiles();
   bindProofTiles();
+  bindReportsRefresh();
   bindNewIssueForm();
   bindDrawer();
   window.addEventListener('hashchange', handleRoute);
