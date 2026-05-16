@@ -1,5 +1,5 @@
 {
-  "_doc": "Maps GH labels + title heuristics into module/submodule buckets. First matching rule wins. Order matters — most specific first. Add new modules at the bottom before 'uncategorized'.",
+  "_doc": "Maps GitHub labels + title heuristics into module/submodule buckets for the issue dashboard. First matching rule wins. Order matters — most specific first. Granular labels (ui-v2-*, backend-*, ml-*, dl-*, ts-*, llm-*, broker-*, data-*, aws-*, db-*, infra-*, webhook-*, notify-*, pay-*, test-*) are the source of truth — the registry lives at ayanjava/0dte-v2:deploy/labels/labels.tsv and is mirrored by ayanjava/0dte-v2:.github/issue-workflow.json under the granular_labels_required key. Add new modules at the bottom before 'uncategorized'.",
   "priority_labels": ["p0", "p1", "p2"],
   "modules": [
     {
@@ -9,8 +9,50 @@
       "color": "oklch(0.78 0.20 145)",
       "submodules": [
         {
+          "id": "auth-pages",
+          "label": "Auth pages",
+          "rules": [
+            {"label_any": ["ui-v2-auth-login", "ui-v2-auth-signup", "ui-v2-auth-2fa", "ui-v2-auth-forgot", "ui-v2-auth-recovery"]}
+          ]
+        },
+        {
+          "id": "signal-pages",
+          "label": "Signal pages",
+          "rules": [
+            {"label_any": ["ui-v2-signal-monitor", "ui-v2-signal-backtest", "ui-v2-signal-validator", "ui-v2-signal-pnl", "ui-v2-signal-slippage", "ui-v2-signal-drift", "ui-v2-signal-training", "ui-v2-signal-pipeline", "ui-v2-signal-phase3", "ui-v2-signal-gemini", "ui-v2-opra-backtest", "ui-v2-l2-order-book"]}
+          ]
+        },
+        {
+          "id": "admin-pages",
+          "label": "Admin pages",
+          "rules": [
+            {"label_any": ["ui-v2-admin-users", "ui-v2-admin-infra", "ui-v2-admin-strategy", "ui-v2-admin-symbols", "ui-v2-admin-docs", "ui-v2-admin-journal", "ui-v2-admin-events", "ui-v2-admin-webhooks", "ui-v2-admin-test-results"]}
+          ]
+        },
+        {
+          "id": "trading-pages",
+          "label": "Trading pages",
+          "rules": [
+            {"label_any": ["ui-v2-dashboard", "ui-v2-trades", "ui-v2-orders", "ui-v2-positions", "ui-v2-performance", "ui-v2-risk", "ui-v2-market-intel", "ui-v2-alerts", "ui-v2-brokers", "ui-v2-billing", "ui-v2-settings"]}
+          ]
+        },
+        {
+          "id": "institutional-pages",
+          "label": "Institutional pages",
+          "rules": [
+            {"label_any": ["ui-v2-var-dashboard", "ui-v2-compliance", "ui-v2-smart-routing"]}
+          ]
+        },
+        {
+          "id": "marketing-pages",
+          "label": "Marketing & Onboarding",
+          "rules": [
+            {"label_any": ["ui-v2-welcome", "ui-v2-landing", "ui-v2-marketplace", "ui-v2-guardian", "ui-v2-support-logs", "ui-v2-quality"]}
+          ]
+        },
+        {
           "id": "ui-v2",
-          "label": "V2 Pages",
+          "label": "V2 Pages (other)",
           "rules": [
             {"all": [{"label": "ui"}, {"label": "v1-cutover"}]},
             {"title_contains": ["V2 ", "/v2/"]},
@@ -47,6 +89,76 @@
       "color": "oklch(0.72 0.14 240)",
       "submodules": [
         {
+          "id": "signal-engine",
+          "label": "Signal Engine",
+          "rules": [
+            {"label_any": ["backend-signal-engine", "backend-signal-models", "backend-signal-regime", "backend-signal-grading", "backend-signal-risk", "backend-signal-tca", "backend-signal-scanner", "backend-signal-validation", "backend-signal-monitoring", "backend-signal-data", "backend-signal-training", "backend-signal-strategy", "backend-signal-logging", "signal-engine"]}
+          ]
+        },
+        {
+          "id": "l2-orderbook",
+          "label": "L2 Order Book",
+          "rules": [
+            {"label": "backend-l2"}
+          ]
+        },
+        {
+          "id": "news",
+          "label": "News pipeline",
+          "rules": [
+            {"label": "backend-news"}
+          ]
+        },
+        {
+          "id": "websocket",
+          "label": "WebSocket fan-out",
+          "rules": [
+            {"label": "backend-websocket"}
+          ]
+        },
+        {
+          "id": "pipeline",
+          "label": "Pipeline / orchestrator",
+          "rules": [
+            {"label": "backend-pipeline"}
+          ]
+        },
+        {
+          "id": "reconcile",
+          "label": "Reconciliation",
+          "rules": [
+            {"label": "backend-reconcile"}
+          ]
+        },
+        {
+          "id": "middleware",
+          "label": "Middleware",
+          "rules": [
+            {"label": "backend-middleware"}
+          ]
+        },
+        {
+          "id": "mcp-server",
+          "label": "MCP Server",
+          "rules": [
+            {"label": "backend-mcp-server"}
+          ]
+        },
+        {
+          "id": "routers",
+          "label": "API Routers",
+          "rules": [
+            {"label_any": ["backend-router-admin", "backend-router-auth", "backend-router-broker", "backend-router-trading", "backend-router-portfolio", "backend-router-reports", "backend-router-webhooks", "backend-router-streaming", "backend-router-market-data", "backend-router-ai", "backend-router-settings", "backend-router-infra", "backend-router-user-mgmt", "backend-router-institutional", "backend-router-risk", "backend-router-analytics"]}
+          ]
+        },
+        {
+          "id": "config",
+          "label": "Config / startup",
+          "rules": [
+            {"label_any": ["backend-config", "backend-startup", "backend-symbols", "backend-workers", "backend-notifications"]}
+          ]
+        },
+        {
           "id": "auth",
           "label": "Auth & Sessions",
           "rules": [
@@ -58,22 +170,18 @@
           "id": "storage",
           "label": "Storage & Schema",
           "rules": [
+            {"label": "backend-storage"},
             {"label": "schema-drift"},
-            {"title_contains": ["alembic", "alpha_", "SQLite", "Postgres", "schema", "migration"]}
+            {"label": "storage"},
+            {"title_contains": ["alembic", "alpha_", "schema", "migration"]}
           ]
         },
         {
           "id": "hot-path",
           "label": "Hot Path",
           "rules": [
+            {"label": "infra-cpu-hotpath"},
             {"title_contains": ["hot path", "hot-path", "hotpath", "<10us", "latency"]}
-          ]
-        },
-        {
-          "id": "signal-engine",
-          "label": "Signal Engine",
-          "rules": [
-            {"label": "signal-engine"}
           ]
         },
         {
@@ -82,6 +190,68 @@
           "rules": [
             {"label": "multi-user"},
             {"title_contains": ["tenant", "Tenant", "multi-user"]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ml-dl",
+      "label": "ML & DL",
+      "icon": "🧠",
+      "color": "oklch(0.72 0.14 300)",
+      "submodules": [
+        {
+          "id": "classical-ml",
+          "label": "Classical ML",
+          "rules": [
+            {"label_any": ["ml-xgboost-grader", "ml-hmm-regime", "ml-conformal-prediction", "ml-isotonic-calibration", "ml-istar-tca", "ml-gjr-garch", "ml-feature-drift", "ml-meta-learner-v2", "ml-meta-learner-v3", "ml-debate-agent"]},
+            {"title_contains": ["XGBoost", "xgboost", "HMM", "Wolpert", "stacker", "GARCH", "I-Star"]}
+          ]
+        },
+        {
+          "id": "deep-learning",
+          "label": "Deep Learning",
+          "rules": [
+            {"label_any": ["dl-tcn-forecaster", "dl-lstm-attention", "dl-tft-transformer", "dl-meta-stacker", "dl-finbert-sentiment", "dl-distilbert-event", "dl-lightgbm-impact"]},
+            {"title_contains": ["LSTM", "TCN", "TFT", "FinBERT", "DistilBERT", "LightGBM"]}
+          ]
+        },
+        {
+          "id": "time-series",
+          "label": "Time-series & Foundation",
+          "rules": [
+            {"label_any": ["ts-chronos-bolt", "ts-chronos-t5", "ts-arima-ensemble", "ts-kronos-fm"]},
+            {"title_contains": ["Chronos", "Kronos", "ARIMA"]}
+          ]
+        },
+        {
+          "id": "llms",
+          "label": "LLMs",
+          "rules": [
+            {"label_any": ["llm-gemini", "llm-anthropic", "llm-openai"]},
+            {"title_contains": ["Gemini", "Claude", "GPT"]}
+          ]
+        },
+        {
+          "id": "training",
+          "label": "Training",
+          "rules": [
+            {"label_any": ["dl", "deep-learning", "training", "backend-signal-training"]},
+            {"title_contains": ["retrain", "fine-tune", "finetune", "training run", "Layer 1 foundation", "Layer 2 forecast"]}
+          ]
+        },
+        {
+          "id": "features",
+          "label": "Features & Signals",
+          "rules": [
+            {"title_contains": ["feature engine", "regime detector", "shadow harness", "drift detection", "score cache"]}
+          ]
+        },
+        {
+          "id": "drift",
+          "label": "Drift & Eval",
+          "rules": [
+            {"title_contains": ["drift", "shadow validation", "DSR", "Sharpe", "p-value", "kill-switch"]}
           ]
         }
       ]
@@ -96,6 +266,7 @@
           "id": "tiger",
           "label": "Tiger",
           "rules": [
+            {"label": "broker-tiger"},
             {"title_contains": ["Tiger", "tiger"]}
           ]
         },
@@ -103,6 +274,7 @@
           "id": "ibkr",
           "label": "IBKR",
           "rules": [
+            {"label": "broker-ibkr"},
             {"title_contains": ["IBKR", "ibkr", "ib_async", "ib_insync", "Interactive Brokers"]}
           ]
         },
@@ -110,7 +282,24 @@
           "id": "moomoo",
           "label": "Moomoo",
           "rules": [
+            {"label": "broker-moomoo"},
             {"title_contains": ["Moomoo", "moomoo", "MoomooAdapter"]}
+          ]
+        },
+        {
+          "id": "alpaca",
+          "label": "Alpaca",
+          "rules": [
+            {"label": "broker-alpaca"},
+            {"title_contains": ["Alpaca", "alpaca"]}
+          ]
+        },
+        {
+          "id": "india",
+          "label": "India brokers",
+          "rules": [
+            {"label": "broker-india"},
+            {"title_contains": ["Zerodha", "Angel One", "Upstox", "NSE", "BSE"]}
           ]
         },
         {
@@ -130,6 +319,350 @@
       ]
     },
     {
+      "id": "market-data",
+      "label": "Market Data Feeds",
+      "icon": "📈",
+      "color": "oklch(0.82 0.16 80)",
+      "submodules": [
+        {
+          "id": "yahoo",
+          "label": "Yahoo Finance",
+          "rules": [
+            {"label": "data-yahoo"},
+            {"title_contains": ["yfinance", "Yahoo Finance"]}
+          ]
+        },
+        {
+          "id": "finnhub",
+          "label": "Finnhub",
+          "rules": [
+            {"label": "data-finnhub"},
+            {"title_contains": ["Finnhub", "finnhub"]}
+          ]
+        },
+        {
+          "id": "polygon",
+          "label": "Polygon",
+          "rules": [
+            {"label": "data-polygon"},
+            {"title_contains": ["Polygon.io", "polygon"]}
+          ]
+        },
+        {
+          "id": "benzinga",
+          "label": "Benzinga",
+          "rules": [
+            {"label": "data-benzinga"},
+            {"title_contains": ["Benzinga", "benzinga"]}
+          ]
+        },
+        {
+          "id": "moomoo-news",
+          "label": "Moomoo News",
+          "rules": [
+            {"label": "data-moomoo"}
+          ]
+        },
+        {
+          "id": "opra",
+          "label": "OPRA",
+          "rules": [
+            {"label": "data-opra"},
+            {"title_contains": ["OPRA", "opra"]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aws",
+      "label": "AWS",
+      "icon": "☁️",
+      "color": "oklch(0.78 0.18 60)",
+      "submodules": [
+        {
+          "id": "ec2",
+          "label": "EC2",
+          "rules": [
+            {"label": "aws-ec2"},
+            {"title_contains": ["EC2", "t3.small", "c6i.large"]}
+          ]
+        },
+        {
+          "id": "lambda",
+          "label": "Lambda",
+          "rules": [
+            {"label": "aws-lambda"},
+            {"title_contains": ["Lambda", "lambda_wake", "workspace_monitor"]}
+          ]
+        },
+        {
+          "id": "ssm",
+          "label": "SSM",
+          "rules": [
+            {"label": "aws-ssm"},
+            {"title_contains": ["SSM ", "Send-Command"]}
+          ]
+        },
+        {
+          "id": "iam",
+          "label": "IAM",
+          "rules": [
+            {"label": "aws-iam"},
+            {"title_contains": ["IAM", "instance profile", "assume role"]}
+          ]
+        },
+        {
+          "id": "s3",
+          "label": "S3",
+          "rules": [
+            {"label": "aws-s3"},
+            {"title_contains": ["s3://", "S3 bucket"]}
+          ]
+        },
+        {
+          "id": "cost-explorer",
+          "label": "Cost Explorer",
+          "rules": [
+            {"label": "aws-cost-explorer"},
+            {"title_contains": ["Cost Explorer", "AWS cost"]}
+          ]
+        },
+        {
+          "id": "eventbridge",
+          "label": "EventBridge",
+          "rules": [
+            {"label": "aws-eventbridge"},
+            {"title_contains": ["EventBridge", "auto-resize cron"]}
+          ]
+        },
+        {
+          "id": "cloudwatch",
+          "label": "CloudWatch",
+          "rules": [
+            {"label": "aws-cloudwatch"},
+            {"title_contains": ["CloudWatch"]}
+          ]
+        },
+        {
+          "id": "ses",
+          "label": "SES",
+          "rules": [
+            {"label": "aws-ses"},
+            {"title_contains": ["SES email", "Amazon SES"]}
+          ]
+        },
+        {
+          "id": "secrets-mgr",
+          "label": "Secrets Manager",
+          "rules": [
+            {"label": "aws-secrets-mgr"},
+            {"title_contains": ["Secrets Manager", "AWS Secrets"]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "databases",
+      "label": "Databases",
+      "icon": "🗄️",
+      "color": "oklch(0.72 0.14 250)",
+      "submodules": [
+        {
+          "id": "postgres",
+          "label": "Postgres",
+          "rules": [
+            {"label": "db-postgres"},
+            {"title_contains": ["Postgres", "postgres", "asyncpg", "psycopg"]}
+          ]
+        },
+        {
+          "id": "redis",
+          "label": "Redis",
+          "rules": [
+            {"label": "db-redis"},
+            {"title_contains": ["Redis", "redis", "ElastiCache"]}
+          ]
+        },
+        {
+          "id": "pgvector",
+          "label": "pgvector",
+          "rules": [
+            {"label": "db-pgvector"},
+            {"title_contains": ["pgvector", "vector store", "embeddings table"]}
+          ]
+        },
+        {
+          "id": "sqlite",
+          "label": "SQLite (deprecated)",
+          "rules": [
+            {"label": "db-sqlite"},
+            {"title_contains": ["SQLite"]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "label": "Compute & Infra",
+      "icon": "🚀",
+      "color": "oklch(0.78 0.12 200)",
+      "submodules": [
+        {
+          "id": "cpu-hotpath",
+          "label": "CPU hot-path",
+          "rules": [
+            {"label": "infra-cpu-hotpath"}
+          ]
+        },
+        {
+          "id": "gpu-g4dn",
+          "label": "GPU (g4dn)",
+          "rules": [
+            {"label_any": ["infra-gpu-g4dn", "infra-gpu-spot"]},
+            {"title_contains": ["g4dn", "GPU", "spot", "AMI"]}
+          ]
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "rules": [
+            {"label": "infra-docker"},
+            {"title_contains": ["Dockerfile", "docker-compose"]}
+          ]
+        },
+        {
+          "id": "alembic",
+          "label": "Alembic migrations",
+          "rules": [
+            {"label": "infra-alembic"},
+            {"title_contains": ["alembic", "alpha_"]}
+          ]
+        },
+        {
+          "id": "github-actions",
+          "label": "GitHub Actions / CI",
+          "rules": [
+            {"label": "infra-github-actions"},
+            {"title_contains": ["GitHub Actions", "GH Actions", "workflow", "CI "]}
+          ]
+        },
+        {
+          "id": "infra-other",
+          "label": "Other infra",
+          "rules": [
+            {"label": "infra"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "webhooks",
+      "label": "Webhooks (inbound)",
+      "icon": "🪝",
+      "color": "oklch(0.78 0.16 130)",
+      "submodules": [
+        {
+          "id": "tradingview",
+          "label": "TradingView",
+          "rules": [
+            {"label": "webhook-tradingview"},
+            {"title_contains": ["TradingView webhook", "TV alert"]}
+          ]
+        },
+        {
+          "id": "stripe-webhook",
+          "label": "Stripe webhook",
+          "rules": [
+            {"label": "webhook-stripe"}
+          ]
+        },
+        {
+          "id": "razorpay-webhook",
+          "label": "Razorpay webhook",
+          "rules": [
+            {"label": "webhook-razorpay"}
+          ]
+        },
+        {
+          "id": "webhook-other",
+          "label": "Other webhook",
+          "rules": [
+            {"label": "webhook"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notifications",
+      "label": "Notifications (outbound)",
+      "icon": "🔔",
+      "color": "oklch(0.82 0.14 90)",
+      "submodules": [
+        {
+          "id": "email",
+          "label": "Email (SES)",
+          "rules": [
+            {"label": "notify-email"}
+          ]
+        },
+        {
+          "id": "sentry",
+          "label": "Sentry",
+          "rules": [
+            {"label": "notify-sentry"},
+            {"title_contains": ["Sentry", "sentry-sdk"]}
+          ]
+        },
+        {
+          "id": "telegram",
+          "label": "Telegram",
+          "rules": [
+            {"label": "notify-telegram"},
+            {"title_contains": ["Telegram"]}
+          ]
+        },
+        {
+          "id": "discord",
+          "label": "Discord",
+          "rules": [
+            {"label": "notify-discord"},
+            {"title_contains": ["Discord"]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "payments",
+      "label": "Payments",
+      "icon": "💳",
+      "color": "oklch(0.78 0.16 50)",
+      "submodules": [
+        {
+          "id": "stripe",
+          "label": "Stripe",
+          "rules": [
+            {"label": "pay-stripe"},
+            {"title_contains": ["Stripe"]}
+          ]
+        },
+        {
+          "id": "razorpay",
+          "label": "Razorpay",
+          "rules": [
+            {"label": "pay-razorpay"},
+            {"title_contains": ["Razorpay"]}
+          ]
+        },
+        {
+          "id": "billing",
+          "label": "Billing (generic)",
+          "rules": [
+            {"label": "billing"}
+          ]
+        }
+      ]
+    },
+    {
       "id": "testing",
       "label": "Testing & QA",
       "icon": "🧪",
@@ -139,6 +672,7 @@
           "id": "pytest",
           "label": "Pytest",
           "rules": [
+            {"label": "test-pytest"},
             {"title_contains": ["pytest", "Pytest", "pg_writer test", "test_"]}
           ]
         },
@@ -146,7 +680,32 @@
           "id": "vitest",
           "label": "Vitest",
           "rules": [
+            {"label": "test-vitest"},
             {"title_contains": ["Vitest", "vitest"]}
+          ]
+        },
+        {
+          "id": "hypothesis",
+          "label": "Hypothesis (fuzz)",
+          "rules": [
+            {"label": "test-hypothesis"},
+            {"title_contains": ["Hypothesis", "hypothesis"]}
+          ]
+        },
+        {
+          "id": "locust",
+          "label": "Locust (load)",
+          "rules": [
+            {"label": "test-locust"},
+            {"title_contains": ["Locust", "locust"]}
+          ]
+        },
+        {
+          "id": "syrupy",
+          "label": "Syrupy (snapshot)",
+          "rules": [
+            {"label": "test-syrupy"},
+            {"title_contains": ["Syrupy", "syrupy"]}
           ]
         },
         {
@@ -211,80 +770,6 @@
           "label": "Other tech-debt",
           "rules": [
             {"label": "tech-debt"}
-          ]
-        }
-      ]
-    },
-    {
-      "id": "ml-dl",
-      "label": "ML & DL",
-      "icon": "🧠",
-      "color": "oklch(0.72 0.14 300)",
-      "submodules": [
-        {
-          "id": "models",
-          "label": "Models",
-          "rules": [
-            {"label_any": ["ml-models", "model", "ml"]},
-            {"title_contains": ["XGBoost", "xgboost", "HMM", "LSTM", "TCN", "TFT", "FinBERT", "Chronos", "Wolpert", "stacker", "ARIMA", "GARCH"]}
-          ]
-        },
-        {
-          "id": "training",
-          "label": "Training",
-          "rules": [
-            {"label_any": ["dl", "deep-learning", "training"]},
-            {"title_contains": ["retrain", "fine-tune", "finetune", "training run", "Layer 1 foundation", "Layer 2 forecast"]}
-          ]
-        },
-        {
-          "id": "features",
-          "label": "Features & Signals",
-          "rules": [
-            {"title_contains": ["feature engine", "regime detector", "shadow harness", "drift detection", "score cache"]}
-          ]
-        },
-        {
-          "id": "drift",
-          "label": "Drift & Eval",
-          "rules": [
-            {"title_contains": ["drift", "shadow validation", "DSR", "Sharpe", "p-value", "kill-switch"]}
-          ]
-        }
-      ]
-    },
-    {
-      "id": "infra",
-      "label": "Infra & Deploy",
-      "icon": "🚀",
-      "color": "oklch(0.78 0.12 200)",
-      "submodules": [
-        {
-          "id": "aws",
-          "label": "AWS",
-          "rules": [
-            {"title_contains": ["AWS", "EC2", "RDS", "ElastiCache", "Lambda", "SSM", "CloudWatch", "s3://", "S3"]}
-          ]
-        },
-        {
-          "id": "deploy",
-          "label": "Deploy / CI",
-          "rules": [
-            {"title_contains": ["deploy", "Deploy", "CI ", "workflow", "GH Actions", "GitHub Actions"]}
-          ]
-        },
-        {
-          "id": "training",
-          "label": "GPU / Training",
-          "rules": [
-            {"title_contains": ["GPU", "spot", "AMI", "training", "Train", "retrain"]}
-          ]
-        },
-        {
-          "id": "infra-other",
-          "label": "Other infra",
-          "rules": [
-            {"label": "infra"}
           ]
         }
       ]
