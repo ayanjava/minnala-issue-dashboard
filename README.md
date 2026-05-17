@@ -1,11 +1,11 @@
 # Minnala Issue Dashboard
 
-Live, single-page dashboard for [ayanjava/0dte-v2](https://github.com/ayanjava/0dte-v2)
+Live, single-page dashboard for
 issues **and pull requests**. Pure client-side — fetches directly from the
 GitHub REST API on every page load. No cached snapshots, no backend, no
 build step.
 
-> **Live URL:** `https://ayanjava.github.io/minnala-issue-dashboard/`
+> **Live URL:** ``
 > (after the one-time Pages setup below).
 
 ## What it shows
@@ -54,8 +54,8 @@ GitHub's API. Click **⚙ Settings** in the topbar to paste it once.
 ### Creating the token
 
 1. Open <https://github.com/settings/personal-access-tokens/new>
-2. **Resource owner**: `ayanjava`
-3. **Repository access**: Only select repositories → `ayanjava/0dte-v2`
+2. **Resource owner**: ``
+3. **Repository access**: Only select repositories → ``
 4. **Permissions**:
    - Contents — Read
    - Issues — Read
@@ -88,7 +88,7 @@ No Python, no Node, no build step. Chart.js loaded from jsDelivr CDN at runtime.
 ### 1. Push this repo to GitHub
 
 ```pwsh
-cd C:\Users\ayanb\Downloads\0D\minnala-issue-dashboard
+cd 
 gh repo create minnala-issue-dashboard --public --source=. --remote=origin --push
 ```
 
@@ -110,7 +110,7 @@ Or via UI: Settings → Pages → Source = "Deploy from a branch" → branch
 ### 3. Open the live URL
 
 ```
-https://ayanjava.github.io/minnala-issue-dashboard/
+
 ```
 
 (1–2 minutes after step 2 for Pages to propagate.)
@@ -123,7 +123,7 @@ loads live data on every visit + every click of the ↻ button.
 ## Running locally
 
 ```pwsh
-cd C:\Users\ayanb\Downloads\0D\minnala-issue-dashboard
+\
 python -m http.server 8765 --directory docs
 # open http://localhost:8765
 # click ⚙ Settings, paste a PAT
