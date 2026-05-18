@@ -2828,52 +2828,67 @@ function bindDetailTiles () {
   document.querySelectorAll('.kpi.clickable[data-detail]').forEach(t => {
     t.addEventListener('click', () => {
       const d = t.dataset.detail;
-      // Toggle behavior: if this tile is currently the active filter
-      // (kindType+priority/label match), clear; otherwise apply.
-      const cur = `${FILTERS.kindType || ''}|${FILTERS.priority || 'all'}|${FILTERS.label || ''}`;
-      const applyAndCompare = (kt, pr, lb) => {
-        const next = `${kt || ''}|${pr || 'all'}|${lb || ''}`;
-        if (cur === next) {
-          FILTERS.kindType = null; FILTERS.priority = 'all'; FILTERS.label = null;
-        } else {
-          FILTERS.kindType = kt; FILTERS.priority = pr; FILTERS.label = lb;
-        }
-      };
+      // Multi-select with per-tile toggle: each tile owns one or two
+      // FILTERS dimensions. Clicking a different tile composes (e.g.
+      // Task·P1 + audit-v2 = audit-v2 tasks at P1). Clicking the SAME
+      // tile again clears ONLY that tile's dimensions, leaving other
+      // active tiles untouched. The DOM .active class (set by
+      // syncPillsToFilters from FILTERS state) is the canonical
+      // "is this tile currently on" signal.
+      const active = t.classList.contains('active');
       switch (d) {
-        case 'task-p0':   applyAndCompare('task', 'p0', null);    break;
-        case 'task-p1':   applyAndCompare('task', 'p1', null);    break;
-        case 'task-p2':   applyAndCompare('task', 'p2', null);    break;
-        case 'task-epic': applyAndCompare('task', 'all', 'epic'); break;
-        case 'bug-p0':    applyAndCompare('bug',  'p0', null);    break;
-        case 'bug-p1':    applyAndCompare('bug',  'p1', null);    break;
-        case 'bug-p2':    applyAndCompare('bug',  'p2', null);    break;
-        case 'audit-v2':  applyAndCompare(null,   'all', 'audit-v2'); break;
-        case 'epic':      applyAndCompare(null,   'all', 'epic'); break;
+        case 'task-p0':
+          if (active) { FILTERS.kindType = null;   FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'task'; FILTERS.priority = 'p0';  }
+          break;
+        case 'task-p1':
+          if (active) { FILTERS.kindType = null;   FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'task'; FILTERS.priority = 'p1';  }
+          break;
+        case 'task-p2':
+          if (active) { FILTERS.kindType = null;   FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'task'; FILTERS.priority = 'p2';  }
+          break;
+        case 'task-epic':
+          if (active) { FILTERS.kindType = null;   FILTERS.label = null;   }
+          else        { FILTERS.kindType = 'task'; FILTERS.label = 'epic'; }
+          break;
+        case 'bug-p0':
+          if (active) { FILTERS.kindType = null;  FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'bug'; FILTERS.priority = 'p0';  }
+          break;
+        case 'bug-p1':
+          if (active) { FILTERS.kindType = null;  FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'bug'; FILTERS.priority = 'p1';  }
+          break;
+        case 'bug-p2':
+          if (active) { FILTERS.kindType = null;  FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'bug'; FILTERS.priority = 'p2';  }
+          break;
+        case 'audit-v2':
+          FILTERS.label = active ? null : 'audit-v2';
+          break;
+        case 'epic':
+          FILTERS.label = active ? null : 'epic';
+          break;
         case 'assigned':
-          // Toggle assignee-filter dimension. Backed by FILTERS.assignedToMe
-          // when a PAT is present; otherwise we just filter the table view
-          // for issues with any assignee.
-          FILTERS.assigneeAny = !FILTERS.assigneeAny;
+          FILTERS.assigneeAny = !active;
           if (FILTERS.assigneeAny) FILTERS.assigneeNone = false;
           break;
         case 'unassigned':
-          FILTERS.assigneeNone = !FILTERS.assigneeNone;
+          FILTERS.assigneeNone = !active;
           if (FILTERS.assigneeNone) FILTERS.assigneeAny = false;
           break;
         case 'wip':
-          FILTERS.wipOnly = !FILTERS.wipOnly;
+          FILTERS.wipOnly = !active;
           break;
         case 'stale':
-          // Stale tile sorts the table by updated_at asc to surface
-          // oldest-updated; no FILTERS change since it's a view ordering hint.
-          PAGE.sort = { key: 'age_days', dir: 'desc' };
-          break;
         case 'oldest':
-          // Sort by age desc — surfaces longest-open at the top.
+          // View-ordering hint; doesn't toggle a FILTERS dimension.
           PAGE.sort = { key: 'age_days', dir: 'desc' };
           break;
         case 'avg-age':
-          // No-op filter; tooltip already shows the value.
+          // Pure stat tile; tooltip already shows the value.
           return;
       }
       PAGE.idx = 0;
