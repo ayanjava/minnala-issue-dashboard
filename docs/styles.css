@@ -457,6 +457,66 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   max-height: 700px;
   overflow-y: auto;
 }
+
+/* Tools charts grid — 4 cards in a 2×2 grid at desktop, 1-col on mobile */
+.charts-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+@media (max-width: 1100px) { .charts-tools { grid-template-columns: 1fr; } }
+
+/* Tools table — expand-button column + detail row */
+.tools-table .tool-expand { width: 24px; padding: 4px; }
+.tools-table .expand-btn {
+  width: 20px; height: 20px; padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  color: var(--color-text-mid);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.tools-table .expand-btn:hover { color: var(--color-text); border-color: var(--color-accent); }
+.tool-detail.hidden { display: none; }
+.tool-detail td {
+  padding: var(--space-3);
+  background: color-mix(in oklab, var(--color-accent) 4%, var(--color-bg));
+  border-left: 2px solid var(--color-accent);
+}
+.tool-detail > td > * { margin: 4px 0; }
+.tool-notes   { font-size: 11px; color: var(--color-text-mid); }
+.tool-blocker { font-size: 11px; color: var(--color-loss); padding: 4px 8px; background: color-mix(in oklab, var(--color-loss) 8%, transparent); border-radius: 3px; }
+.tool-rebuild { font-size: 10px; padding: 4px 0; }
+.tool-links   { font-size: 11px; padding-top: 4px; border-top: 1px dashed var(--color-border); margin-top: 6px; }
+.tool-links a { margin-right: 8px; }
+.tool-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 11px;
+}
+.tool-metrics-table th { text-align: left; padding: 4px 8px; color: var(--color-text-dim); font-size: 9px; }
+.tool-metrics-table td { padding: 3px 8px; vertical-align: top; border-top: 1px solid var(--color-border); }
+.tool-metrics-table td code { background: var(--color-bg); padding: 1px 4px; border-radius: 2px; }
+.tool-metric-list { margin: 0; padding-left: 16px; list-style: none; font-size: 10px; }
+.tool-metric-list li { margin: 1px 0; }
+.tool-ratings { display: flex; gap: 6px; flex-wrap: wrap; }
+.rating-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-border);
+}
+.rating-chip.rating-a { color: var(--color-accent); border-color: var(--color-accent); }
+.rating-chip.rating-b { color: var(--color-brand);  border-color: var(--color-brand);  }
+.rating-chip.rating-c { color: var(--color-alert);  border-color: var(--color-alert);  }
+.rating-chip.rating-d { color: #ff6f00;             border-color: #ff6f00;             }
+.rating-chip.rating-e { color: var(--color-loss);   border-color: var(--color-loss);   }
+.closed-issue { color: var(--color-text-dim); text-decoration: line-through; }
 .kpi {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);

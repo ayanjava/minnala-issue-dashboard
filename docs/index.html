@@ -629,24 +629,46 @@
         <div class="kpi" title="Tools that need external infrastructure (load tests, E2E, mutation)"><div class="k-label">⊘ Not run</div> <div class="k-val" id="kpiToolsNotRun">—</div></div>
       </section>
 
+      <!-- Tools charts grid — 4 different views of the same dataset -->
+      <section class="charts charts-tools">
+        <div class="card chart-card chart-donut">
+          <div class="card-head">Tools by status</div>
+          <div class="chart-wrap"><canvas id="chartToolsStatus"></canvas></div>
+        </div>
+        <div class="card chart-card chart-donut">
+          <div class="card-head">Tools by category <span class="muted">(static / tests / load / e2e / mutation)</span></div>
+          <div class="chart-wrap"><canvas id="chartToolsCategory"></canvas></div>
+        </div>
+        <div class="card chart-card chart-stack">
+          <div class="card-head">Static-analysis findings <span class="muted">(by tool)</span></div>
+          <div class="chart-wrap"><canvas id="chartStaticFindings"></canvas></div>
+        </div>
+        <div class="card chart-card chart-stack">
+          <div class="card-head">pytest by category <span class="muted">(pass / fail / skip)</span></div>
+          <div class="chart-wrap"><canvas id="chartPytestCategory"></canvas></div>
+        </div>
+      </section>
+
       <section class="card">
         <div class="card-head">
           <span>Toolchain status</span>
           <span class="muted" id="toolsCount"></span>
           <span class="card-head-spacer"></span>
           <span class="muted" id="toolsUpdated">loading…</span>
+          <a href="https://github.com/ayanjava/0dte-v2/blob/main/reports/all-tools.json" target="_blank" rel="noopener" class="muted">all-tools.json ↗</a>
         </div>
         <div class="table-wrap">
-          <table id="toolsTable">
+          <table id="toolsTable" class="tools-table">
             <thead>
               <tr>
+                <th></th>
                 <th>Tool</th>
                 <th>Category</th>
                 <th>Status</th>
                 <th>Last run</th>
                 <th>Key metric</th>
                 <th>Tracked issues</th>
-                <th>Rebuild command</th>
+                <th>Report</th>
               </tr>
             </thead>
             <tbody id="toolsBody"></tbody>

@@ -1939,12 +1939,12 @@ async function renderToolsView () {
   const body    = document.getElementById('toolsBody');
   const countEl = document.getElementById('toolsCount');
   updated.textContent = 'loading…';
-  body.innerHTML = '<tr><td colspan="7" class="muted">Fetching reports/all-tools.json…</td></tr>';
+  body.innerHTML = '<tr><td colspan="8" class="muted">Fetching reports/all-tools.json…</td></tr>';
 
   if (!STATE.tools) STATE.tools = await fetchToolsData();
   const { data, error } = STATE.tools;
   if (error || !data) {
-    body.innerHTML = `<tr><td colspan="7" class="muted">Could not load reports/all-tools.json — ${escapeHTML(error || 'no data')}. Paste a PAT in ⚙ Settings if the repo is private.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" class="muted">Could not load reports/all-tools.json — ${escapeHTML(error || 'no data')}. Paste a PAT in ⚙ Settings if the repo is private.</td></tr>`;
     return;
   }
   updated.textContent = `generated ${relTime(data.generated_at)}`;
@@ -1952,42 +1952,80 @@ async function renderToolsView () {
 
   // KPI tiles roll-up
   const counts = { live: 0, partial: 0, blocked: 0, not_run: 0 };
+  const byCategory = {};
   for (const t of Object.values(data.tools)) {
     const s = t.status || 'not_run';
     if (counts[s] !== undefined) counts[s]++;
+    const c = t.category || 'other';
+    byCategory[c] = (byCategory[c] || 0) + 1;
   }
   document.getElementById('kpiToolsLive').textContent    = counts.live;
   document.getElementById('kpiToolsPartial').textContent = counts.partial;
   document.getElementById('kpiToolsBlocked').textContent = counts.blocked;
   document.getElementById('kpiToolsNotRun').textContent  = counts.not_run;
 
-  // Table rows
+  renderToolsStatusChart(counts);
+  renderToolsCategoryChart(byCategory);
+  renderStaticFindingsChart(data.tools);
+  renderPytestCategoryChart(data.tools);
+
+  // Table rows — sorted by status (live first), with an expandable detail
+  // row underneath each tool.
   const rows = Object.entries(data.tools)
     .sort(([, a], [, b]) => {
       const order = { live: 0, partial: 1, blocked: 2, not_run: 3 };
       return (order[a.status] ?? 9) - (order[b.status] ?? 9);
     })
     .map(([key, t]) => {
+      const issuesAll = [...(t.tracked_issues || []), ...(t.closed_issues || []).map(n => ({n, closed: true}))];
       const issues = (t.tracked_issues || []).map(n => {
         const num = String(n).replace(/^#/, '');
         return `<a href="https://github.com/${REPO}/issues/${num}" target="_blank" rel="noopener">#${num}</a>`;
-      }).join(' ') || '<span class="muted">—</span>';
+      }).join(' ');
+      const closed = (t.closed_issues || []).map(n => {
+        const num = String(n).replace(/^#/, '');
+        return `<a class="closed-issue" href="https://github.com/${REPO}/issues/${num}" target="_blank" rel="noopener" title="closed">#${num}</a>`;
+      }).join(' ');
+      const issuesCell = (issues || closed) ? `${issues} ${closed}`.trim() : '<span class="muted">—</span>';
       const lastRun = t.last_run ? relTime(t.last_run) : '<span class="muted">—</span>';
-      const cmd = t.rebuild ? `<code class="rebuild-cmd">${escapeHTML(t.rebuild)}</code>` : '<span class="muted">—</span>';
-      return `<tr class="tool-row tool-${t.status}">
+
+      // Report links column: source JSON + web_url if present
+      const reportLinks = [];
+      if (t.report_url) reportLinks.push(`<a href="${escapeHTML(t.report_url)}" target="_blank" rel="noopener" title="Source report on GitHub">📄</a>`);
+      if (t.web_url) reportLinks.push(`<a href="${escapeHTML(t.web_url)}" target="_blank" rel="noopener" title="Live dashboard">🔗</a>`);
+      const reportCell = reportLinks.length ? reportLinks.join(' ') : '<span class="muted">—</span>';
+
+      const rowId = `tool-${key.replace(/[^a-z0-9_]/gi, '_')}`;
+      const mainRow = `<tr class="tool-row tool-${t.status}" data-key="${escapeHTML(key)}" data-row="${rowId}">
+        <td class="tool-expand"><button class="expand-btn" data-target="${rowId}-detail" aria-label="Expand">▸</button></td>
         <td><strong>${escapeHTML(key)}</strong></td>
         <td><span class="t-kind">${escapeHTML(t.category || '?')}${t.subcategory ? ' · ' + escapeHTML(t.subcategory) : ''}</span></td>
         <td>${statusBadge(t.status)}</td>
         <td>${lastRun}</td>
         <td>${escapeHTML(toolKeyMetric(key, t))}</td>
-        <td>${issues}</td>
-        <td>${cmd}</td>
+        <td>${issuesCell}</td>
+        <td>${reportCell}</td>
       </tr>`;
+
+      const detailRow = `<tr class="tool-detail hidden" id="${rowId}-detail">
+        <td></td>
+        <td colspan="7">${renderToolDetailHTML(key, t)}</td>
+      </tr>`;
+      return mainRow + detailRow;
     }).join('');
   body.innerHTML = rows;
 
+  // Wire expand/collapse toggles
+  document.querySelectorAll('#toolsBody .expand-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      const isHidden = target.classList.toggle('hidden');
+      btn.textContent = isHidden ? '▸' : '▾';
+    });
+  });
+
   // Recommendations panel (markdown rendered as <pre> until a lib is added).
-  // Keeping deps zero — preformatted reads fine for this audience.
   try {
     const md = await fetchTextFromContents('reports/recommendations.md');
     document.getElementById('recommendationsBody').innerHTML =
@@ -1996,6 +2034,184 @@ async function renderToolsView () {
     document.getElementById('recommendationsBody').innerHTML =
       `<p class="muted">Could not load reports/recommendations.md — ${escapeHTML(e.message)}</p>`;
   }
+}
+
+/* Render the per-tool expanded detail: top_rules table, full metrics
+   list, blocker/notes prose, link block. Compact but exhaustive. */
+function renderToolDetailHTML (key, t) {
+  const parts = [];
+  if (t.notes)    parts.push(`<div class="tool-notes"><em>${escapeHTML(t.notes)}</em></div>`);
+  if (t.blocker)  parts.push(`<div class="tool-blocker">⚠️ <strong>Blocker:</strong> ${escapeHTML(t.blocker)}</div>`);
+  if (t.purpose)  parts.push(`<div class="tool-notes"><strong>Purpose:</strong> ${escapeHTML(t.purpose)}</div>`);
+
+  if (t.metrics && Object.keys(t.metrics).length) {
+    const rows = Object.entries(t.metrics).map(([k, v]) => {
+      if (Array.isArray(v)) {
+        const list = v.map(item =>
+          item && typeof item === 'object'
+            ? `<li><code>${escapeHTML(item.id || item.type || '?')}</code> · ${item.count ?? '?'} · ${escapeHTML(item.name || item.root_hypothesis || '')}</li>`
+            : `<li>${escapeHTML(String(item))}</li>`
+        ).join('');
+        return `<tr><td><code>${escapeHTML(k)}</code></td><td><ul class="tool-metric-list">${list}</ul></td></tr>`;
+      }
+      return `<tr><td><code>${escapeHTML(k)}</code></td><td>${escapeHTML(String(v))}</td></tr>`;
+    }).join('');
+    parts.push(`<table class="tool-metrics-table"><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`);
+  }
+
+  if (t.ratings) {
+    const r = Object.entries(t.ratings).map(([k, v]) =>
+      `<span class="rating-chip rating-${String(v).toLowerCase()}">${escapeHTML(k)}: ${escapeHTML(v)}</span>`
+    ).join(' ');
+    parts.push(`<div class="tool-ratings">${r}</div>`);
+  }
+
+  if (t.baseline) {
+    parts.push(`<div class="tool-notes"><strong>Audit baseline:</strong> ${
+      Object.entries(t.baseline).map(([k, v]) =>
+        `<code>${escapeHTML(k)}=${escapeHTML(String(v))}</code>`).join(' · ')}</div>`);
+  }
+  if (t.live_run) {
+    parts.push(`<div class="tool-notes"><strong>Live run (${escapeHTML(t.live_run.scope || '')}):</strong> ${
+      Object.entries(t.live_run.summary || {}).map(([k, v]) =>
+        `<code>${escapeHTML(k)}=${escapeHTML(String(v))}</code>`).join(' · ')}
+      ${t.live_run.caveat ? `<br><em class="muted">${escapeHTML(t.live_run.caveat)}</em>` : ''}</div>`);
+  }
+
+  if (t.rebuild) {
+    parts.push(`<div class="tool-rebuild"><strong>Rebuild:</strong> <code class="rebuild-cmd">${escapeHTML(t.rebuild)}</code></div>`);
+  }
+
+  const links = [];
+  if (t.report_url) links.push(`<a href="${escapeHTML(t.report_url)}" target="_blank" rel="noopener">📄 Source report</a>`);
+  if (t.web_url)    links.push(`<a href="${escapeHTML(t.web_url)}" target="_blank" rel="noopener">🔗 Live tool</a>`);
+  if ((t.closed_issues || []).length) {
+    const c = (t.closed_issues || []).map(n => {
+      const num = String(n).replace(/^#/, '');
+      return `<a class="closed-issue" href="https://github.com/${REPO}/issues/${num}" target="_blank" rel="noopener">#${num}</a>`;
+    }).join(' ');
+    links.push(`<span class="muted">Closed: ${c}</span>`);
+  }
+  if (links.length) parts.push(`<div class="tool-links">${links.join(' · ')}</div>`);
+
+  return parts.join('') || '<div class="muted">No detail recorded.</div>';
+}
+
+function renderToolsStatusChart (counts) {
+  chartDestroy('chartToolsStatus');
+  const ctx = document.getElementById('chartToolsStatus');
+  if (!ctx) return;
+  CHARTS.chartToolsStatus = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['🟢 Live', '🟡 Partial', '🔴 Blocked', '⊘ Not run'],
+      datasets: [{
+        data: [counts.live, counts.partial, counts.blocked, counts.not_run],
+        backgroundColor: [COLOR.accent, COLOR.alert, COLOR.loss, COLOR.dim],
+        borderColor: COLOR.bg, borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: COLOR.text, font: { size: 11 } } } },
+    },
+  });
+}
+
+function renderToolsCategoryChart (byCategory) {
+  chartDestroy('chartToolsCategory');
+  const ctx = document.getElementById('chartToolsCategory');
+  if (!ctx) return;
+  const entries = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+  CHARTS.chartToolsCategory = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: entries.map(([k]) => k),
+      datasets: [{
+        data: entries.map(([, v]) => v),
+        backgroundColor: [COLOR.brand, COLOR.blue, COLOR.purple, COLOR.accent, COLOR.alert, COLOR.dim, COLOR.loss],
+        borderColor: COLOR.bg, borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: COLOR.text, font: { size: 11 } } } },
+    },
+  });
+}
+
+function renderStaticFindingsChart (tools) {
+  // Findings per static-analysis tool. Stacked = severity buckets where
+  // each tool emits them (Sonar maps bugs/code_smells; Bandit maps HIGH/
+  // MEDIUM/LOW; Ruff has only a single bucket).
+  chartDestroy('chartStaticFindings');
+  const ctx = document.getElementById('chartStaticFindings');
+  if (!ctx) return;
+  const sonar = tools.sonarqube?.metrics  || {};
+  const bandit= tools.bandit?.metrics     || {};
+  const ruff  = tools.ruff?.metrics       || {};
+  const mypy  = tools.mypy?.metrics       || {};
+  CHARTS.chartStaticFindings = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['SonarQube', 'Bandit', 'Ruff', 'mypy'],
+      datasets: [
+        { label: 'High / Bugs',    data: [sonar.bugs || 0,            bandit.high || 0,   0,                       0],                    backgroundColor: COLOR.loss   },
+        { label: 'Medium / Smells',data: [sonar.code_smells || 0,    bandit.medium || 0, ruff.total_errors || 0,  mypy.total_errors || 0], backgroundColor: COLOR.alert  },
+        { label: 'Hotspots',       data: [sonar.security_hotspots || 0, 0,               0,                       0],                    backgroundColor: COLOR.purple },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      scales: {
+        x: { stacked: true, ticks: { color: COLOR.text, precision: 0 }, grid: { color: COLOR.grid } },
+        y: { stacked: true, ticks: { color: COLOR.text, font: { size: 11 } }, grid: { display: false } },
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+    },
+  });
+}
+
+function renderPytestCategoryChart (tools) {
+  // Stacked bar of pytest pass/fail/skip per category. Reads each
+  // pytest_<marker> tool's .baseline or .metrics.
+  chartDestroy('chartPytestCategory');
+  const ctx = document.getElementById('chartPytestCategory');
+  if (!ctx) return;
+  const cats = ['unit', 'integration', 'functional', 'security', 'property', 'regression', 'performance'];
+  const labels = [];
+  const passed = [];
+  const failed = [];
+  const skipped= [];
+  for (const c of cats) {
+    const t = tools[`pytest_${c}`] || (c === 'property' ? tools.hypothesis_property : null);
+    if (!t) continue;
+    const src = t.baseline || t.metrics || {};
+    if (src.passed == null && src.failed == null) continue;
+    labels.push(c);
+    passed.push(src.passed  || 0);
+    failed.push(src.failed  || 0);
+    skipped.push(src.skipped || 0);
+  }
+  CHARTS.chartPytestCategory = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Passed',  data: passed,  backgroundColor: COLOR.accent },
+        { label: 'Failed',  data: failed,  backgroundColor: COLOR.loss   },
+        { label: 'Skipped', data: skipped, backgroundColor: COLOR.dim    },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      scales: {
+        x: { stacked: true, ticks: { color: COLOR.text, precision: 0 }, grid: { color: COLOR.grid } },
+        y: { stacked: true, ticks: { color: COLOR.text, font: { size: 11 } }, grid: { display: false } },
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: COLOR.text, font: { size: 11 } } } },
+    },
+  });
 }
 
 async function renderReportsView () {
