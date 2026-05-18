@@ -382,6 +382,27 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: var(--space-3);
 }
+.kpis-detail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.kpis-detail .k-label .p-tag {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-bg);
+  vertical-align: 1px;
+}
+.kpis-detail .k-label .p-tag.p0 { background: var(--color-loss);   }
+.kpis-detail .k-label .p-tag.p1 { background: var(--color-warn, #d93f0b); }
+.kpis-detail .k-label .p-tag.p2 { background: var(--color-blue);   }
 .kpi {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
@@ -427,12 +448,14 @@ button:focus-visible, a:focus-visible, input:focus-visible {
  * gets viewport-264px. 8 small tiles need ~1100px of main area, so
  * wrap to 4 at 1400 and 2 at 800. */
 @media (max-width: 1400px) {
-  .kpis      { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .kpis-type { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .kpis        { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpis-type   { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .kpis-detail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 800px) {
-  .kpis      { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpis-type { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis        { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis-type   { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Cards + charts */

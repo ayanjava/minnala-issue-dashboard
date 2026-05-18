@@ -1151,6 +1151,7 @@ function render () {
   const filtered = applyFilters(STATE.issues);
   renderKPIs(filtered);
   renderTypeTiles(filtered);
+  renderDetailTiles(filtered);
   // Proof tiles ignore the Status filter (same scope as 7-day tiles)
   // so closed/merged records still feed the proof view.
   renderProofKPIs(applyFilters(STATE.issues, { skipStatus: true }));
@@ -2678,6 +2679,109 @@ function bindTypeTiles () {
   });
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Detail tiles (12 in 3 rows):
+     row A — Tasks by priority (P0/P1/P2) + Epic count among tasks
+     row B — Issues (bugs) by priority + audit-v2 cohort
+     row C — Age stats (oldest / avg / stale >30d) + Epics total
+   Each tile is click-to-filter. Click again to clear.
+   The active pill state of the Type/Priority bars doesn't auto-sync
+   (same UX pattern as bindTypeTiles), but the filter banner + table
+   row count both reflect the new filter, so functional intent is clear.
+   ────────────────────────────────────────────────────────────── */
+function renderDetailTiles (filtered) {
+  const open = filtered.filter(i => i.state === 'open' && !i.is_pr);
+  const c = {
+    taskP0: 0, taskP1: 0, taskP2: 0, taskEpic: 0,
+    bugP0:  0, bugP1:  0, bugP2:  0, auditV2:  0,
+    epics:  0,
+  };
+  let oldestAge = 0;
+  let ageSum = 0;
+  let stale = 0;
+  const now = Date.now();
+  for (const i of open) {
+    const labels = new Set((i.labels || []).map(l => l.toLowerCase()));
+    if (i.kind_type === 'task') {
+      if (i.priority === 'p0') c.taskP0++;
+      else if (i.priority === 'p1') c.taskP1++;
+      else if (i.priority === 'p2') c.taskP2++;
+      if (labels.has('epic')) c.taskEpic++;
+    } else if (i.kind_type === 'bug') {
+      if (i.priority === 'p0') c.bugP0++;
+      else if (i.priority === 'p1') c.bugP1++;
+      else if (i.priority === 'p2') c.bugP2++;
+    }
+    if (labels.has('audit-v2')) c.auditV2++;
+    if (labels.has('epic')) c.epics++;
+    if (i.age_days > oldestAge) oldestAge = i.age_days;
+    if (i.age_days >= 0) ageSum += i.age_days;
+    // updated_at-based staleness (no update in 30+ days)
+    if (i.updated_at) {
+      const d = Math.floor((now - new Date(i.updated_at).getTime()) / 86400000);
+      if (d > 30) stale++;
+    }
+  }
+  const avgAge = open.length ? Math.round(ageSum / open.length) : 0;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('kpiTaskP0',  c.taskP0);
+  set('kpiTaskP1',  c.taskP1);
+  set('kpiTaskP2',  c.taskP2);
+  set('kpiTaskEpic',c.taskEpic);
+  set('kpiBugP0',   c.bugP0);
+  set('kpiBugP1',   c.bugP1);
+  set('kpiBugP2',   c.bugP2);
+  set('kpiAuditV2', c.auditV2);
+  set('kpiOldestAge', oldestAge + 'd');
+  set('kpiAvgAge',  avgAge + 'd');
+  set('kpiStale',   stale);
+  set('kpiEpics',   c.epics);
+}
+
+function bindDetailTiles () {
+  document.querySelectorAll('.kpi.clickable[data-detail]').forEach(t => {
+    t.addEventListener('click', () => {
+      const d = t.dataset.detail;
+      // Toggle behavior: if this tile is currently the active filter
+      // (kindType+priority/label match), clear; otherwise apply.
+      const cur = `${FILTERS.kindType || ''}|${FILTERS.priority || 'all'}|${FILTERS.label || ''}`;
+      const applyAndCompare = (kt, pr, lb) => {
+        const next = `${kt || ''}|${pr || 'all'}|${lb || ''}`;
+        if (cur === next) {
+          FILTERS.kindType = null; FILTERS.priority = 'all'; FILTERS.label = null;
+        } else {
+          FILTERS.kindType = kt; FILTERS.priority = pr; FILTERS.label = lb;
+        }
+      };
+      switch (d) {
+        case 'task-p0':   applyAndCompare('task', 'p0', null);    break;
+        case 'task-p1':   applyAndCompare('task', 'p1', null);    break;
+        case 'task-p2':   applyAndCompare('task', 'p2', null);    break;
+        case 'task-epic': applyAndCompare('task', 'all', 'epic'); break;
+        case 'bug-p0':    applyAndCompare('bug',  'p0', null);    break;
+        case 'bug-p1':    applyAndCompare('bug',  'p1', null);    break;
+        case 'bug-p2':    applyAndCompare('bug',  'p2', null);    break;
+        case 'audit-v2':  applyAndCompare(null,   'all', 'audit-v2'); break;
+        case 'epic':      applyAndCompare(null,   'all', 'epic'); break;
+        case 'stale':
+          // Stale tile sorts the table by updated_at asc to surface
+          // oldest-updated; no FILTERS change since it's a view ordering hint.
+          PAGE.sort = { key: 'age_days', dir: 'desc' };
+          break;
+        case 'oldest':
+          // Sort by age desc — surfaces longest-open at the top.
+          PAGE.sort = { key: 'age_days', dir: 'desc' };
+          break;
+        case 'avg-age':
+          // No-op filter; tooltip already shows the value.
+          return;
+      }
+      PAGE.idx = 0;
+      render();
+    });
+  });
+}
+
 function bindProofTiles () {
   document.querySelectorAll('.kpi.clickable[data-proof]').forEach(t => {
     t.addEventListener('click', () => {
@@ -2782,6 +2886,7 @@ function bindAssignedToMe () {
   bindBoardSurface();
   bindAssignedToMe();
   bindTypeTiles();
+  bindDetailTiles();
   bindProofTiles();
   bindReportsRefresh();
   bindNewIssueForm();
