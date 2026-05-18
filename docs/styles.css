@@ -405,6 +405,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .kpis-detail .k-label .p-tag.p0 { background: var(--color-loss);   }
 .kpis-detail .k-label .p-tag.p1 { background: var(--color-warn, #d93f0b); }
 .kpis-detail .k-label .p-tag.p2 { background: var(--color-blue);   }
+
+/* Active-tile highlight: when a clickable KPI tile's FILTERS combo
+   matches the current state, ring it so the user knows what's filtered.
+   Plays nicely with the existing pill .active highlight. */
+.kpi.clickable.active {
+  outline: 1.5px solid var(--color-accent);
+  outline-offset: -1px;
+  background: color-mix(in oklab, var(--color-accent) 8%, var(--color-bg-raised));
+}
 .kpi {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);

@@ -1164,6 +1164,7 @@ function render () {
   renderOldest();
   renderLabels();
   renderFilterBanner();
+  syncPillsToFilters();
   const filtered = applyFilters(STATE.issues);
   renderKPIs(filtered);
   renderTypeTiles(filtered);
@@ -1193,15 +1194,80 @@ function pillSelect (groupId, btn) {
   btn.classList.add('active');
 }
 
+/**
+ * Re-highlight every pill group + detail tile to match current FILTERS.
+ * Fixes the previously-confusing UX where clicking a detail tile (e.g.
+ * "Tasks · P1") would set FILTERS.priority='p1' but the priority pill
+ * row stayed on "All" — making Reset feel broken when the user clicked
+ * a different pill expecting to "switch".
+ *
+ * Called from render() so every state change auto-syncs the UI.
+ */
+function syncPillsToFilters () {
+  const setActive = (groupId, attr, value) => {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    let matched = false;
+    group.querySelectorAll('.pill').forEach(p => {
+      const v = p.dataset[attr];
+      const isMatch = (v === value);
+      p.classList.toggle('active', isMatch);
+      if (isMatch) matched = true;
+    });
+    // Fallback: nothing matched — highlight the first pill (usually "All")
+    // so the bar never goes blank.
+    if (!matched) {
+      const first = group.querySelector('.pill');
+      if (first) first.classList.add('active');
+    }
+  };
+  setActive('filterType',     't', FILTERS.type);
+  setActive('filterPriority', 'p', FILTERS.priority);
+  setActive('filterStatus',   's', FILTERS.status);
+  setActive('filterAge',      'a', FILTERS.age);
+  // Detail tiles: highlight when the current FILTERS combo matches.
+  document.querySelectorAll('.kpi.clickable[data-detail]').forEach(t => {
+    const d = t.dataset.detail;
+    let active = false;
+    switch (d) {
+      case 'task-p0':   active = FILTERS.kindType === 'task' && FILTERS.priority === 'p0'; break;
+      case 'task-p1':   active = FILTERS.kindType === 'task' && FILTERS.priority === 'p1'; break;
+      case 'task-p2':   active = FILTERS.kindType === 'task' && FILTERS.priority === 'p2'; break;
+      case 'task-epic': active = FILTERS.kindType === 'task' && FILTERS.label === 'epic';  break;
+      case 'bug-p0':    active = FILTERS.kindType === 'bug'  && FILTERS.priority === 'p0'; break;
+      case 'bug-p1':    active = FILTERS.kindType === 'bug'  && FILTERS.priority === 'p1'; break;
+      case 'bug-p2':    active = FILTERS.kindType === 'bug'  && FILTERS.priority === 'p2'; break;
+      case 'audit-v2':  active = FILTERS.label === 'audit-v2'; break;
+      case 'epic':      active = FILTERS.label === 'epic'    && !FILTERS.kindType; break;
+      case 'assigned':  active = !!FILTERS.assigneeAny;  break;
+      case 'unassigned':active = !!FILTERS.assigneeNone; break;
+      case 'wip':       active = !!FILTERS.wipOnly;      break;
+    }
+    t.classList.toggle('active', active);
+  });
+}
+
 function bindFilters () {
   document.getElementById('filterType').addEventListener('click', e => {
     const b = e.target.closest('button.pill'); if (!b) return;
-    FILTERS.type = b.dataset.t; pillSelect('filterType', b);
+    // Pill click overrides any tile-derived kind/label filter. Without
+    // this clear, clicking "🐞 Bug" while the "Task · P1" detail tile
+    // is active produced an impossible bug∧task∧p1 AND-combo (0 results).
+    FILTERS.type = b.dataset.t;
+    FILTERS.kindType = null;
+    if (FILTERS.label && (FILTERS.label === 'epic' || FILTERS.label === 'audit-v2')) {
+      FILTERS.label = null;
+    }
     PAGE.idx = 0; render();
   });
   document.getElementById('filterPriority').addEventListener('click', e => {
     const b = e.target.closest('button.pill'); if (!b) return;
-    FILTERS.priority = b.dataset.p; pillSelect('filterPriority', b);
+    // Same override logic: pill takes precedence over tile.
+    FILTERS.priority = b.dataset.p;
+    FILTERS.kindType = null;
+    if (FILTERS.label && (FILTERS.label === 'epic' || FILTERS.label === 'audit-v2')) {
+      FILTERS.label = null;
+    }
     PAGE.idx = 0; render();
   });
   document.getElementById('filterStatus').addEventListener('click', e => {
@@ -1218,18 +1284,20 @@ function bindFilters () {
     FILTERS.search = e.target.value; PAGE.idx = 0; render();
   });
   document.getElementById('resetBtn').addEventListener('click', () => {
+    // Hard reset: every FILTERS dim + sort + proof state goes back to
+    // defaults. syncPillsToFilters() inside render() re-highlights every
+    // pill + tile so the UI matches.
     Object.assign(FILTERS, { module: null, submodule: null, label: null,
                              kindType: null, type: 'all', priority: 'all',
                              status: 'open', age: 'all', search: '',
                              assignedToMe: false,
                              assigneeAny: false, assigneeNone: false,
-                             wipOnly: false });
+                             wipOnly: false, proof: null, surface: 'all' });
     document.getElementById('search').value = '';
     const atm = document.getElementById('assignedToMe'); if (atm) atm.checked = false;
-    document.querySelectorAll('.pill-group').forEach(g => {
-      const first = g.querySelector('.pill'); pillSelect(g.id, first);
-    });
-    PAGE.idx = 0; render();
+    PAGE.idx = 0;
+    PAGE.sort = { key: 'number', dir: 'desc' };
+    render();
   });
   document.querySelectorAll('#issueTable th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
