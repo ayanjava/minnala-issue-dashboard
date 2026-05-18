@@ -67,6 +67,7 @@
         <li><button class="view-row" data-route="activity"> 📡 <span class="view-label">Activity</span></button></li>
         <li><button class="view-row" data-route="commits">  💾 <span class="view-label">Commits</span></button></li>
         <li><button class="view-row" data-route="reports">  📋 <span class="view-label">Reports</span></button></li>
+        <li><button class="view-row" data-route="tools">    🔧 <span class="view-label">Tools</span></button></li>
         <li><button class="view-row primary" data-route="new">＋ <span class="view-label">New issue</span></button></li>
       </ul>
     </div>
@@ -615,6 +616,56 @@
         </table>
       </section>
     </div><!-- /view-reports -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VIEW: Tools — every test + scan tool in the Minnala toolchain.
+         Reads reports/all-tools.json (committed to main).
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="view hidden" id="view-tools">
+      <section class="kpis kpis-tools">
+        <div class="kpi" title="Tools producing live, current data"><div class="k-label">🟢 Live</div>           <div class="k-val" id="kpiToolsLive">—</div></div>
+        <div class="kpi" title="Tools with stale/partial data (e.g. audit baseline only)"><div class="k-label">🟡 Partial</div> <div class="k-val" id="kpiToolsPartial">—</div></div>
+        <div class="kpi" title="Tools that need a fix to run (broken install, etc)"><div class="k-label">🔴 Blocked</div> <div class="k-val" id="kpiToolsBlocked">—</div></div>
+        <div class="kpi" title="Tools that need external infrastructure (load tests, E2E, mutation)"><div class="k-label">⊘ Not run</div> <div class="k-val" id="kpiToolsNotRun">—</div></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <span>Toolchain status</span>
+          <span class="muted" id="toolsCount"></span>
+          <span class="card-head-spacer"></span>
+          <span class="muted" id="toolsUpdated">loading…</span>
+        </div>
+        <div class="table-wrap">
+          <table id="toolsTable">
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Last run</th>
+                <th>Key metric</th>
+                <th>Tracked issues</th>
+                <th>Rebuild command</th>
+              </tr>
+            </thead>
+            <tbody id="toolsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="toolsRecommendationsCard">
+        <div class="card-head">
+          <span>📝 Recommendations</span>
+          <span class="muted">(read from reports/recommendations.md — manually edited)</span>
+          <span class="card-head-spacer"></span>
+          <a href="https://github.com/ayanjava/0dte-v2/blob/main/reports/recommendations.md" target="_blank" rel="noopener" class="muted">Edit on GitHub →</a>
+        </div>
+        <div id="recommendationsBody" class="markdown-body" style="padding: var(--space-3);">
+          <p class="muted">Loading recommendations…</p>
+        </div>
+      </section>
+    </div><!-- /view-tools -->
 
     <!-- ═══════════════════════════════════════════════════════════
          VIEW: Commits

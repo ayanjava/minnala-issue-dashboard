@@ -414,6 +414,49 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   outline-offset: -1px;
   background: color-mix(in oklab, var(--color-accent) 8%, var(--color-bg-raised));
 }
+
+/* ── Tools view ─────────────────────────────────────────────── */
+.kpis-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: var(--space-3); }
+@media (max-width: 800px) {
+  .kpis-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.tool-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tool-badge.tool-live    { background: color-mix(in oklab, var(--color-accent) 18%, transparent); color: var(--color-accent); }
+.tool-badge.tool-partial { background: color-mix(in oklab, var(--color-alert)  18%, transparent); color: var(--color-alert); }
+.tool-badge.tool-blocked { background: color-mix(in oklab, var(--color-loss)   18%, transparent); color: var(--color-loss); }
+.tool-badge.tool-notrun  { background: color-mix(in oklab, var(--color-text-dim) 14%, transparent); color: var(--color-text-dim); }
+#toolsTable td { vertical-align: top; padding: 6px 8px; font-size: 11px; }
+#toolsTable th { font-size: 10px; }
+.rebuild-cmd {
+  display: inline-block;
+  max-width: 360px;
+  font-size: 10px;
+  background: var(--color-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.recommendations-pre {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-bg);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 700px;
+  overflow-y: auto;
+}
 .kpi {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);

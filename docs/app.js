@@ -1399,7 +1399,7 @@ function createIssue (payload) {
    Router — hash-based, no library.
    ═══════════════════════════════════════════════════════════════ */
 
-const VIEWS = ['dashboard', 'board', 'sprints', 'new', 'activity', 'commits', 'reports'];
+const VIEWS = ['dashboard', 'board', 'sprints', 'new', 'activity', 'commits', 'reports', 'tools'];
 
 function parseHash () {
   const raw = (location.hash || '').replace(/^#\/?/, '');
@@ -1446,6 +1446,7 @@ async function renderActiveView () {
     case 'activity': await renderActivityView(); break;
     case 'commits':  await renderCommitsView(); break;
     case 'reports':  await renderReportsView(); break;
+    case 'tools':    await renderToolsView(); break;
     case 'new':      renderNewIssueForm(); break;
     case 'dashboard':
     default:                       // dashboard renders inside render()
@@ -1862,6 +1863,139 @@ async function fetchReports () {
     } catch (e) { errs[f.key] = e.message; }
   }));
   return { reports: out, errors: errs };
+}
+
+/* ──────────────────────────────────────────────────────────────
+   View: Tools — reads reports/all-tools.json + reports/recommendations.md
+   from main. Single-pane view of every static-analysis / test / load /
+   E2E / mutation tool the project uses, with status badges, last-run
+   timestamps, and a copy-pasteable rebuild command per row.
+   ────────────────────────────────────────────────────────────── */
+async function fetchTextFromContents (path) {
+  const token = getPAT();
+  const headers = {
+    'Accept': 'application/vnd.github.raw',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const url = `https://api.github.com/repos/${REPO}/contents/${path}?ref=main`;
+  const r = await fetch(url, { headers });
+  if (!r.ok) throw new Error(`HTTP ${r.status} fetching ${path}`);
+  return await r.text();
+}
+
+async function fetchToolsData () {
+  try {
+    const json = await fetchTextFromContents('reports/all-tools.json');
+    return { data: JSON.parse(json), error: null };
+  } catch (e) {
+    return { data: null, error: e.message };
+  }
+}
+
+function statusBadge (status) {
+  const map = {
+    live:    { dot: '🟢', cls: 'tool-live',    label: 'Live' },
+    partial: { dot: '🟡', cls: 'tool-partial', label: 'Partial' },
+    blocked: { dot: '🔴', cls: 'tool-blocked', label: 'Blocked' },
+    not_run: { dot: '⊘',  cls: 'tool-notrun',  label: 'Not run' },
+  };
+  const m = map[status] || { dot: '?', cls: '', label: status };
+  return `<span class="tool-badge ${m.cls}">${m.dot} ${escapeHTML(m.label)}</span>`;
+}
+
+function toolKeyMetric (key, t) {
+  // Pull the single most-useful metric per tool for the table cell.
+  if (t.metrics && Object.keys(t.metrics).length) {
+    const m = t.metrics;
+    if (key === 'sonarqube') return `${m.lines_of_code?.toLocaleString() ?? '?'} LOC · ${m.bugs ?? '?'} bugs · gate ${m.quality_gate ?? '?'}`;
+    if (key === 'bandit')    return `${m.total_findings_medium_plus ?? '?'} medium+`;
+    if (key === 'ruff')      return `${m.total_errors ?? '?'} errors · ${m.auto_fixable ?? '?'} auto-fixable`;
+    if (key === 'hypothesis_property') return `${m.passed}/${m.passed + m.failed + m.skipped + (m.errors || 0)} pass`;
+    if (key === 'coverage')  return `${m.overall_pct}% (${m.scope})`;
+    // generic: show first 2 metric key=value pairs
+    return Object.entries(m).slice(0, 2).map(([k, v]) => `${k}=${v}`).join(' · ');
+  }
+  if (t.baseline) {
+    const b = t.baseline;
+    return `${b.passed ?? '?'} pass · ${b.failed ?? '?'} fail · ${b.pass_rate ?? '?'}%`;
+  }
+  if (t.purpose) return t.purpose;
+  return '—';
+}
+
+function relTime (iso) {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '—';
+  const days = Math.floor((Date.now() - t) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1d ago';
+  return `${days}d ago`;
+}
+
+async function renderToolsView () {
+  const updated = document.getElementById('toolsUpdated');
+  const body    = document.getElementById('toolsBody');
+  const countEl = document.getElementById('toolsCount');
+  updated.textContent = 'loading…';
+  body.innerHTML = '<tr><td colspan="7" class="muted">Fetching reports/all-tools.json…</td></tr>';
+
+  if (!STATE.tools) STATE.tools = await fetchToolsData();
+  const { data, error } = STATE.tools;
+  if (error || !data) {
+    body.innerHTML = `<tr><td colspan="7" class="muted">Could not load reports/all-tools.json — ${escapeHTML(error || 'no data')}. Paste a PAT in ⚙ Settings if the repo is private.</td></tr>`;
+    return;
+  }
+  updated.textContent = `generated ${relTime(data.generated_at)}`;
+  countEl.textContent = `${Object.keys(data.tools).length} tools`;
+
+  // KPI tiles roll-up
+  const counts = { live: 0, partial: 0, blocked: 0, not_run: 0 };
+  for (const t of Object.values(data.tools)) {
+    const s = t.status || 'not_run';
+    if (counts[s] !== undefined) counts[s]++;
+  }
+  document.getElementById('kpiToolsLive').textContent    = counts.live;
+  document.getElementById('kpiToolsPartial').textContent = counts.partial;
+  document.getElementById('kpiToolsBlocked').textContent = counts.blocked;
+  document.getElementById('kpiToolsNotRun').textContent  = counts.not_run;
+
+  // Table rows
+  const rows = Object.entries(data.tools)
+    .sort(([, a], [, b]) => {
+      const order = { live: 0, partial: 1, blocked: 2, not_run: 3 };
+      return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+    })
+    .map(([key, t]) => {
+      const issues = (t.tracked_issues || []).map(n => {
+        const num = String(n).replace(/^#/, '');
+        return `<a href="https://github.com/${REPO}/issues/${num}" target="_blank" rel="noopener">#${num}</a>`;
+      }).join(' ') || '<span class="muted">—</span>';
+      const lastRun = t.last_run ? relTime(t.last_run) : '<span class="muted">—</span>';
+      const cmd = t.rebuild ? `<code class="rebuild-cmd">${escapeHTML(t.rebuild)}</code>` : '<span class="muted">—</span>';
+      return `<tr class="tool-row tool-${t.status}">
+        <td><strong>${escapeHTML(key)}</strong></td>
+        <td><span class="t-kind">${escapeHTML(t.category || '?')}${t.subcategory ? ' · ' + escapeHTML(t.subcategory) : ''}</span></td>
+        <td>${statusBadge(t.status)}</td>
+        <td>${lastRun}</td>
+        <td>${escapeHTML(toolKeyMetric(key, t))}</td>
+        <td>${issues}</td>
+        <td>${cmd}</td>
+      </tr>`;
+    }).join('');
+  body.innerHTML = rows;
+
+  // Recommendations panel (markdown rendered as <pre> until a lib is added).
+  // Keeping deps zero — preformatted reads fine for this audience.
+  try {
+    const md = await fetchTextFromContents('reports/recommendations.md');
+    document.getElementById('recommendationsBody').innerHTML =
+      `<pre class="recommendations-pre">${escapeHTML(md)}</pre>`;
+  } catch (e) {
+    document.getElementById('recommendationsBody').innerHTML =
+      `<p class="muted">Could not load reports/recommendations.md — ${escapeHTML(e.message)}</p>`;
+  }
 }
 
 async function renderReportsView () {
