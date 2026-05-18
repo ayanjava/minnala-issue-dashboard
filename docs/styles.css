@@ -379,7 +379,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   margin-bottom: 6px;
 }
 .kpis-type {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: var(--space-3);
 }
 .kpi {
@@ -427,7 +427,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
  * gets viewport-264px. 8 small tiles need ~1100px of main area, so
  * wrap to 4 at 1400 and 2 at 800. */
 @media (max-width: 1400px) {
-  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpis      { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpis-type { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 @media (max-width: 800px) {
   .kpis      { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -857,8 +858,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-family: var(--font-mono);
 }
 
-/* Type-breakdown tile colors (kpis-type grid is declared above) */
+/* Type-breakdown tile colors (kpis-type grid is declared above).
+   Issues (bug) and Tasks are the two main categories — split visually
+   so the work-mix (bug-fix vs new-feature work) is obvious at a glance. */
 .kpi.type-bug   .k-val { color: var(--color-loss);   }
+.kpi.type-task  .k-val { color: var(--color-blue);   }
 .kpi.type-feat  .k-val { color: var(--color-accent); }
 .kpi.type-chore .k-val { color: var(--color-text-mid); }
 .kpi.type-docs  .k-val { color: var(--color-brand);  }

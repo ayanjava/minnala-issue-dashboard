@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-17f">
+<link rel="stylesheet" href="styles.css?v=2026-05-18-task-split">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -103,9 +103,11 @@
       <div class="filter-group">
         <span class="filter-label">Type</span>
         <div class="pill-group" id="filterType">
-          <button class="pill active" data-t="all">All</button>
-          <button class="pill" data-t="issue">Issue</button>
-          <button class="pill" data-t="pr">PR</button>
+          <button class="pill active" data-t="all"   title="All records">All</button>
+          <button class="pill"        data-t="issue" title="GitHub issues (any sub-type)">Issue</button>
+          <button class="pill"        data-t="bug"   title="Bug-labeled issues only">🐞 Bug</button>
+          <button class="pill"        data-t="task"  title="Task-labeled issues only">📝 Task</button>
+          <button class="pill"        data-t="pr"    title="Pull requests">PR</button>
         </div>
       </div>
       <div class="filter-group">
@@ -183,9 +185,11 @@
 
       <!-- Type breakdown tiles. Each is a click-to-filter chip — click
            a tile and the whole dashboard narrows to that type.
-           Click again to clear. -->
+           Click again to clear. Bugs (label=bug) and Tasks (label=task)
+           are split so the issue/task ratio is visible at a glance. -->
       <section class="kpis kpis-type">
-        <div class="kpi clickable type-bug"   data-kt="bug"   title="Click to filter to bugs only"><div class="k-label">🐞 Bugs</div>     <div class="k-val" id="kpiBug">—</div></div>
+        <div class="kpi clickable type-bug"   data-kt="bug"   title="Issues (label=bug). Click to filter."><div class="k-label">🐞 Issues</div>   <div class="k-val" id="kpiBug">—</div></div>
+        <div class="kpi clickable type-task"  data-kt="task"  title="Tasks (label=task). Click to filter."><div class="k-label">📝 Tasks</div>    <div class="k-val" id="kpiTask">—</div></div>
         <div class="kpi clickable type-feat"  data-kt="feat"  title="Click to filter to features only"><div class="k-label">✨ Features</div> <div class="k-val" id="kpiFeat">—</div></div>
         <div class="kpi clickable type-chore" data-kt="chore" title="Click to filter to chores only"><div class="k-label">🧹 Chores</div>  <div class="k-val" id="kpiChore">—</div></div>
         <div class="kpi clickable type-docs"  data-kt="docs"  title="Click to filter to docs only"><div class="k-label">📚 Docs</div>     <div class="k-val" id="kpiDocs">—</div></div>
@@ -200,6 +204,10 @@
         <div class="card chart-card chart-donut">
           <div class="card-head">UI vs Backend <span class="muted">(open)</span></div>
           <div class="chart-wrap"><canvas id="chartSurface"></canvas></div>
+        </div>
+        <div class="card chart-card chart-donut">
+          <div class="card-head">Issues vs Tasks <span class="muted">(open · by label)</span></div>
+          <div class="chart-wrap"><canvas id="chartType"></canvas></div>
         </div>
         <div class="card chart-card chart-stack">
           <div class="card-head">Priority breakdown by module <span class="muted">(open)</span></div>
@@ -634,6 +642,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-17f"></script>
+<script src="app.js?v=2026-05-18-task-split"></script>
 </body>
 </html>

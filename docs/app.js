@@ -38,7 +38,7 @@ const FILTERS = {
   submodule: null,
   label:     null,
   type:      'all',
-  kindType:  null,       // bug | feat | chore | docs (set by clicking a Type tile)
+  kindType:  null,       // bug | task | feat | chore | docs (set by clicking a Type tile)
   priority:  'all',
   status:    'open',
   age:       'all',
@@ -324,9 +324,10 @@ function proofStatus (labelNames) {
 function typeOf (labelNames) {
   const set = new Set(labelNames.map(n => n.toLowerCase()));
   if (set.has('bug')) return 'bug';
+  if (set.has('task')) return 'task';
   if (set.has('documentation') || set.has('docs')) return 'docs';
   if (set.has('enhancement') || set.has('feature') || set.has('feat')) return 'feat';
-  if (set.has('chore') || set.has('tech-debt') || set.has('task')) return 'chore';
+  if (set.has('chore') || set.has('tech-debt')) return 'chore';
   return null;
 }
 
@@ -693,6 +694,8 @@ function applyFilters (issues, opts = {}) {
     if (FILTERS.label && !(i.labels || []).includes(FILTERS.label)) return false;
     if (FILTERS.kindType && i.kind_type !== FILTERS.kindType) return false;
     if (FILTERS.type === 'issue' && i.is_pr)  return false;
+    if (FILTERS.type === 'bug'   && (i.is_pr || i.kind_type !== 'bug'))  return false;
+    if (FILTERS.type === 'task'  && (i.is_pr || i.kind_type !== 'task')) return false;
     if (FILTERS.type === 'pr'    && !i.is_pr) return false;
     if (FILTERS.priority !== 'all') {
       const p = i.priority || 'none';
@@ -1155,6 +1158,7 @@ function render () {
   if (ROUTE.current === 'dashboard') {
     renderChartModule(filtered);
     renderChartSurface(filtered);
+    renderChartType(filtered);
     renderChartPriorityStack(filtered);
     renderChartTrend();
     renderChartAge(filtered);
@@ -2613,11 +2617,47 @@ function renderChartSurface (filtered) {
   });
 }
 
+function renderChartType (filtered) {
+  // Donut split of Issues (bug) vs Tasks vs Features vs Chores vs Docs
+  // among OPEN non-PR records. Click handler narrows the dashboard to the
+  // clicked slice (same effect as clicking the matching KPI tile).
+  const open = filtered.filter(i => i.state === 'open' && !i.is_pr);
+  const c = { bug: 0, task: 0, feat: 0, chore: 0, docs: 0, untyped: 0 };
+  for (const i of open) {
+    if (i.kind_type) c[i.kind_type]++; else c.untyped++;
+  }
+  const labels = ['🐞 Issues', '📝 Tasks', '✨ Features', '🧹 Chores', '📚 Docs', '∅ Untyped'];
+  const data   = [c.bug, c.task, c.feat, c.chore, c.docs, c.untyped];
+  const colors = [COLOR.loss, COLOR.blue, COLOR.accent, COLOR.dim, COLOR.brand, '#444'];
+  chartDestroy('chartType');
+  const ctx = document.getElementById('chartType');
+  if (!ctx) return;
+  CHARTS.chartType = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: COLOR.bg, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } },
+      },
+      onClick: (_evt, els) => {
+        if (!els.length) return;
+        const map = ['bug', 'task', 'feat', 'chore', 'docs', null];
+        const kt  = map[els[0].index];
+        FILTERS.kindType = (FILTERS.kindType === kt) ? null : kt;
+        PAGE.idx = 0; render();
+      },
+    },
+  });
+}
+
 function renderTypeTiles (filtered) {
   const open = filtered.filter(i => i.state === 'open');
-  const c = { bug: 0, feat: 0, chore: 0, docs: 0 };
+  const c = { bug: 0, task: 0, feat: 0, chore: 0, docs: 0 };
   for (const i of open) if (i.kind_type) c[i.kind_type]++;
   document.getElementById('kpiBug').textContent   = c.bug;
+  document.getElementById('kpiTask').textContent  = c.task;
   document.getElementById('kpiFeat').textContent  = c.feat;
   document.getElementById('kpiChore').textContent = c.chore;
   document.getElementById('kpiDocs').textContent  = c.docs;
