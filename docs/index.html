@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-17f">
+<link rel="stylesheet" href="styles.css?v=2026-05-18-task-split">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -103,9 +103,11 @@
       <div class="filter-group">
         <span class="filter-label">Type</span>
         <div class="pill-group" id="filterType">
-          <button class="pill active" data-t="all">All</button>
-          <button class="pill" data-t="issue">Issue</button>
-          <button class="pill" data-t="pr">PR</button>
+          <button class="pill active" data-t="all"   title="All records">All</button>
+          <button class="pill"        data-t="issue" title="GitHub issues (any sub-type)">Issue</button>
+          <button class="pill"        data-t="bug"   title="Bug-labeled issues only">🐞 Bug</button>
+          <button class="pill"        data-t="task"  title="Task-labeled issues only">📝 Task</button>
+          <button class="pill"        data-t="pr"    title="Pull requests">PR</button>
         </div>
       </div>
       <div class="filter-group">
@@ -169,6 +171,9 @@
         <div class="kpi" title="Opened in last 7 days (open + already-closed)"><div class="k-label icon-only">🆕</div>          <div class="k-val" id="kpiOpened7d">—</div></div>
         <div class="kpi" title="Closed in last 7 days"><div class="k-label icon-only">✅</div>           <div class="k-val" id="kpiClosed7d">—</div></div>
         <div class="kpi" title="Merged PRs in last 7 days"><div class="k-label icon-only">🔀</div>           <div class="k-val" id="kpiMerged7d">—</div></div>
+        <div class="kpi clickable" data-detail="assigned"   title="Open issues with at least one assignee"><div class="k-label">🤝 Assigned</div>   <div class="k-val" id="kpiAssigned">—</div></div>
+        <div class="kpi clickable" data-detail="unassigned" title="Open issues with no assignee"><div class="k-label">🆓 Unassigned</div> <div class="k-val" id="kpiUnassigned">—</div></div>
+        <div class="kpi clickable" data-detail="wip"        title="Open issues in progress / in review (label=in-progress|wip|doing|review|qa)"><div class="k-label">⏳ In progress</div> <div class="k-val" id="kpiWip">—</div></div>
       </section>
 
       <!-- Five-proof tiles. Every issue must declare a state for each
@@ -183,12 +188,42 @@
 
       <!-- Type breakdown tiles. Each is a click-to-filter chip — click
            a tile and the whole dashboard narrows to that type.
-           Click again to clear. -->
+           Click again to clear. Bugs (label=bug) and Tasks (label=task)
+           are split so the issue/task ratio is visible at a glance. -->
       <section class="kpis kpis-type">
-        <div class="kpi clickable type-bug"   data-kt="bug"   title="Click to filter to bugs only"><div class="k-label">🐞 Bugs</div>     <div class="k-val" id="kpiBug">—</div></div>
+        <div class="kpi clickable type-bug"   data-kt="bug"   title="Issues (label=bug). Click to filter."><div class="k-label">🐞 Issues</div>   <div class="k-val" id="kpiBug">—</div></div>
+        <div class="kpi clickable type-task"  data-kt="task"  title="Tasks (label=task). Click to filter."><div class="k-label">📝 Tasks</div>    <div class="k-val" id="kpiTask">—</div></div>
         <div class="kpi clickable type-feat"  data-kt="feat"  title="Click to filter to features only"><div class="k-label">✨ Features</div> <div class="k-val" id="kpiFeat">—</div></div>
         <div class="kpi clickable type-chore" data-kt="chore" title="Click to filter to chores only"><div class="k-label">🧹 Chores</div>  <div class="k-val" id="kpiChore">—</div></div>
         <div class="kpi clickable type-docs"  data-kt="docs"  title="Click to filter to docs only"><div class="k-label">📚 Docs</div>     <div class="k-val" id="kpiDocs">—</div></div>
+      </section>
+
+      <!-- Task detail row: tasks broken down by priority + epic count.
+           Each tile filters by kind_type=task AND the matching priority
+           (or label=epic for the last). Click again to clear. -->
+      <section class="kpis kpis-detail" id="kpisTaskDetail">
+        <div class="kpi clickable type-task" data-detail="task-p0"   title="Tasks at P0 priority"><div class="k-label">📝 Tasks · <span class="p-tag p0">P0</span></div> <div class="k-val" id="kpiTaskP0">—</div></div>
+        <div class="kpi clickable type-task" data-detail="task-p1"   title="Tasks at P1 priority"><div class="k-label">📝 Tasks · <span class="p-tag p1">P1</span></div> <div class="k-val" id="kpiTaskP1">—</div></div>
+        <div class="kpi clickable type-task" data-detail="task-p2"   title="Tasks at P2 priority"><div class="k-label">📝 Tasks · <span class="p-tag p2">P2</span></div> <div class="k-val" id="kpiTaskP2">—</div></div>
+        <div class="kpi clickable type-task" data-detail="task-epic" title="Tasks labeled epic (multi-step work)"><div class="k-label">📝 Tasks · ⭐ Epic</div>    <div class="k-val" id="kpiTaskEpic">—</div></div>
+      </section>
+
+      <!-- Issue detail row: bugs broken down by priority + audit-v2 cohort.
+           audit-v2 = the 2026-05-18 handover audit batch (#1886–#1907). -->
+      <section class="kpis kpis-detail" id="kpisIssueDetail">
+        <div class="kpi clickable type-bug"  data-detail="bug-p0"   title="Issues (bugs) at P0 priority"><div class="k-label">🐞 Issues · <span class="p-tag p0">P0</span></div> <div class="k-val" id="kpiBugP0">—</div></div>
+        <div class="kpi clickable type-bug"  data-detail="bug-p1"   title="Issues (bugs) at P1 priority"><div class="k-label">🐞 Issues · <span class="p-tag p1">P1</span></div> <div class="k-val" id="kpiBugP1">—</div></div>
+        <div class="kpi clickable type-bug"  data-detail="bug-p2"   title="Issues (bugs) at P2 priority"><div class="k-label">🐞 Issues · <span class="p-tag p2">P2</span></div> <div class="k-val" id="kpiBugP2">—</div></div>
+        <div class="kpi clickable"           data-detail="audit-v2" title="audit-v2 cohort — 2026-05-18 handover audit batch"><div class="k-label">🔬 audit-v2</div> <div class="k-val" id="kpiAuditV2">—</div></div>
+      </section>
+
+      <!-- Other important details: stale (>30d no update), oldest age,
+           avg age, and the 5-proof coverage already lives above. -->
+      <section class="kpis kpis-detail" id="kpisAgeDetail">
+        <div class="kpi clickable" data-detail="oldest"  title="Days since the oldest open issue was created"><div class="k-label">🕰️ Oldest open</div>   <div class="k-val" id="kpiOldestAge">—</div></div>
+        <div class="kpi clickable" data-detail="avg-age" title="Average age of open issues (days since creation)"><div class="k-label">📅 Avg age</div>       <div class="k-val" id="kpiAvgAge">—</div></div>
+        <div class="kpi clickable" data-detail="stale"   title="Open issues not updated in 30+ days"><div class="k-label">🚧 Stale (&gt;30d)</div>          <div class="k-val" id="kpiStale">—</div></div>
+        <div class="kpi clickable" data-detail="epic"    title="All epic-labeled issues (multi-step work)"><div class="k-label">⭐ Epics</div>             <div class="k-val" id="kpiEpics">—</div></div>
       </section>
 
       <!-- Charts grid -->
@@ -200,6 +235,10 @@
         <div class="card chart-card chart-donut">
           <div class="card-head">UI vs Backend <span class="muted">(open)</span></div>
           <div class="chart-wrap"><canvas id="chartSurface"></canvas></div>
+        </div>
+        <div class="card chart-card chart-donut">
+          <div class="card-head">Issues vs Tasks <span class="muted">(open · by label)</span></div>
+          <div class="chart-wrap"><canvas id="chartType"></canvas></div>
         </div>
         <div class="card chart-card chart-stack">
           <div class="card-head">Priority breakdown by module <span class="muted">(open)</span></div>
@@ -634,6 +673,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-17f"></script>
+<script src="app.js?v=2026-05-18-task-split"></script>
 </body>
 </html>

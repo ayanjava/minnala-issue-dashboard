@@ -374,13 +374,45 @@ button:focus-visible, a:focus-visible, input:focus-visible {
  * horizontally (root cause of the 100%-zoom horizontal scrollbar). */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  /* 4 cols at desktop so the 12 summary tiles render as 4+4+4 with no
+     orphan row. <800px breakpoint below drops to 2 cols. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 6px;
 }
 .kpis-type {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: var(--space-3);
+}
+.kpis-detail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.kpis-detail .k-label .p-tag {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-bg);
+  vertical-align: 1px;
+}
+.kpis-detail .k-label .p-tag.p0 { background: var(--color-loss);   }
+.kpis-detail .k-label .p-tag.p1 { background: var(--color-warn, #d93f0b); }
+.kpis-detail .k-label .p-tag.p2 { background: var(--color-blue);   }
+
+/* Active-tile highlight: when a clickable KPI tile's FILTERS combo
+   matches the current state, ring it so the user knows what's filtered.
+   Plays nicely with the existing pill .active highlight. */
+.kpi.clickable.active {
+  outline: 1.5px solid var(--color-accent);
+  outline-offset: -1px;
+  background: color-mix(in oklab, var(--color-accent) 8%, var(--color-bg-raised));
 }
 .kpi {
   background: var(--color-bg-raised);
@@ -427,11 +459,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
  * gets viewport-264px. 8 small tiles need ~1100px of main area, so
  * wrap to 4 at 1400 and 2 at 800. */
 @media (max-width: 1400px) {
-  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* .kpis defaults to 4 cols already; type + detail are the breakpoint-
+     sensitive ones (.kpis-type spans 5 columns at this width). */
+  .kpis-type   { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .kpis-detail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 800px) {
-  .kpis      { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpis-type { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis        { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis-type   { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Cards + charts */
@@ -857,8 +893,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-family: var(--font-mono);
 }
 
-/* Type-breakdown tile colors (kpis-type grid is declared above) */
+/* Type-breakdown tile colors (kpis-type grid is declared above).
+   Issues (bug) and Tasks are the two main categories — split visually
+   so the work-mix (bug-fix vs new-feature work) is obvious at a glance. */
 .kpi.type-bug   .k-val { color: var(--color-loss);   }
+.kpi.type-task  .k-val { color: var(--color-blue);   }
 .kpi.type-feat  .k-val { color: var(--color-accent); }
 .kpi.type-chore .k-val { color: var(--color-text-mid); }
 .kpi.type-docs  .k-val { color: var(--color-brand);  }

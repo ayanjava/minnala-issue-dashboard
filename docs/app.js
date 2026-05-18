@@ -38,12 +38,15 @@ const FILTERS = {
   submodule: null,
   label:     null,
   type:      'all',
-  kindType:  null,       // bug | feat | chore | docs (set by clicking a Type tile)
+  kindType:  null,       // bug | task | feat | chore | docs (set by clicking a Type tile)
   priority:  'all',
   status:    'open',
   age:       'all',
   search:    '',
   assignedToMe: false,
+  assigneeAny:  false,    // detail tile: 🤝 Assigned (any assignee)
+  assigneeNone: false,    // detail tile: 🆓 Unassigned
+  wipOnly:      false,    // detail tile: ⏳ In progress (stage != 'todo')
   surface:   'all',
   // 5-proof filter: null=off, 'proved'=fully proved, 'partial'=some
   // proofs supplied but not all, 'needs'=at least one dim missing.
@@ -324,9 +327,10 @@ function proofStatus (labelNames) {
 function typeOf (labelNames) {
   const set = new Set(labelNames.map(n => n.toLowerCase()));
   if (set.has('bug')) return 'bug';
+  if (set.has('task')) return 'task';
   if (set.has('documentation') || set.has('docs')) return 'docs';
   if (set.has('enhancement') || set.has('feature') || set.has('feat')) return 'feat';
-  if (set.has('chore') || set.has('tech-debt') || set.has('task')) return 'chore';
+  if (set.has('chore') || set.has('tech-debt')) return 'chore';
   return null;
 }
 
@@ -693,7 +697,12 @@ function applyFilters (issues, opts = {}) {
     if (FILTERS.label && !(i.labels || []).includes(FILTERS.label)) return false;
     if (FILTERS.kindType && i.kind_type !== FILTERS.kindType) return false;
     if (FILTERS.type === 'issue' && i.is_pr)  return false;
+    if (FILTERS.type === 'bug'   && (i.is_pr || i.kind_type !== 'bug'))  return false;
+    if (FILTERS.type === 'task'  && (i.is_pr || i.kind_type !== 'task')) return false;
     if (FILTERS.type === 'pr'    && !i.is_pr) return false;
+    if (FILTERS.assigneeAny  && (i.assignees || []).length === 0) return false;
+    if (FILTERS.assigneeNone && (i.assignees || []).length >  0)  return false;
+    if (FILTERS.wipOnly      && (!i.stage || i.stage === 'todo' || i.stage === 'done')) return false;
     if (FILTERS.priority !== 'all') {
       const p = i.priority || 'none';
       if (p !== FILTERS.priority) return false;
@@ -741,6 +750,9 @@ function renderFilterBanner () {
   if (FILTERS.age !== 'all')      chips.push('age:' + FILTERS.age);
   if (FILTERS.proof)              chips.push('proof:' + FILTERS.proof);
   if (FILTERS.search)             chips.push(`search:"${FILTERS.search}"`);
+  if (FILTERS.assigneeAny)        chips.push('🤝 assigned');
+  if (FILTERS.assigneeNone)       chips.push('🆓 unassigned');
+  if (FILTERS.wipOnly)            chips.push('⏳ in-progress');
   if (chips.length === 0) { banner.classList.add('hidden'); return; }
   banner.classList.remove('hidden');
   banner.innerHTML = '<span class="muted">Filters:</span>' +
@@ -781,6 +793,13 @@ function renderKPIs (filtered) {
   document.getElementById('kpiOpened7d').textContent   = activity.filter(i => within(i.created_at, 7)).length;
   document.getElementById('kpiClosed7d').textContent   = activity.filter(i => within(i.closed_at,  7)).length;
   document.getElementById('kpiMerged7d').textContent   = activity.filter(i => i.merged && within(i.merged_at, 7)).length;
+  // Workflow tiles: assigned / unassigned / in-progress. These fill the
+  // 4-col grid's previously-orphaned row 3 and surface "who is on what"
+  // alongside the priority + activity stats.
+  const openIssues = open.filter(i => !i.is_pr);
+  document.getElementById('kpiAssigned').textContent   = openIssues.filter(i => (i.assignees || []).length > 0).length;
+  document.getElementById('kpiUnassigned').textContent = openIssues.filter(i => (i.assignees || []).length === 0).length;
+  document.getElementById('kpiWip').textContent        = openIssues.filter(i => i.stage && i.stage !== 'todo').length;
 }
 
 /* ── Charts ───────────────────────────────────────────────────── */
@@ -1145,9 +1164,11 @@ function render () {
   renderOldest();
   renderLabels();
   renderFilterBanner();
+  syncPillsToFilters();
   const filtered = applyFilters(STATE.issues);
   renderKPIs(filtered);
   renderTypeTiles(filtered);
+  renderDetailTiles(filtered);
   // Proof tiles ignore the Status filter (same scope as 7-day tiles)
   // so closed/merged records still feed the proof view.
   renderProofKPIs(applyFilters(STATE.issues, { skipStatus: true }));
@@ -1155,6 +1176,7 @@ function render () {
   if (ROUTE.current === 'dashboard') {
     renderChartModule(filtered);
     renderChartSurface(filtered);
+    renderChartType(filtered);
     renderChartPriorityStack(filtered);
     renderChartTrend();
     renderChartAge(filtered);
@@ -1172,15 +1194,80 @@ function pillSelect (groupId, btn) {
   btn.classList.add('active');
 }
 
+/**
+ * Re-highlight every pill group + detail tile to match current FILTERS.
+ * Fixes the previously-confusing UX where clicking a detail tile (e.g.
+ * "Tasks · P1") would set FILTERS.priority='p1' but the priority pill
+ * row stayed on "All" — making Reset feel broken when the user clicked
+ * a different pill expecting to "switch".
+ *
+ * Called from render() so every state change auto-syncs the UI.
+ */
+function syncPillsToFilters () {
+  const setActive = (groupId, attr, value) => {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    let matched = false;
+    group.querySelectorAll('.pill').forEach(p => {
+      const v = p.dataset[attr];
+      const isMatch = (v === value);
+      p.classList.toggle('active', isMatch);
+      if (isMatch) matched = true;
+    });
+    // Fallback: nothing matched — highlight the first pill (usually "All")
+    // so the bar never goes blank.
+    if (!matched) {
+      const first = group.querySelector('.pill');
+      if (first) first.classList.add('active');
+    }
+  };
+  setActive('filterType',     't', FILTERS.type);
+  setActive('filterPriority', 'p', FILTERS.priority);
+  setActive('filterStatus',   's', FILTERS.status);
+  setActive('filterAge',      'a', FILTERS.age);
+  // Detail tiles: highlight when the current FILTERS combo matches.
+  document.querySelectorAll('.kpi.clickable[data-detail]').forEach(t => {
+    const d = t.dataset.detail;
+    let active = false;
+    switch (d) {
+      case 'task-p0':   active = FILTERS.kindType === 'task' && FILTERS.priority === 'p0'; break;
+      case 'task-p1':   active = FILTERS.kindType === 'task' && FILTERS.priority === 'p1'; break;
+      case 'task-p2':   active = FILTERS.kindType === 'task' && FILTERS.priority === 'p2'; break;
+      case 'task-epic': active = FILTERS.kindType === 'task' && FILTERS.label === 'epic';  break;
+      case 'bug-p0':    active = FILTERS.kindType === 'bug'  && FILTERS.priority === 'p0'; break;
+      case 'bug-p1':    active = FILTERS.kindType === 'bug'  && FILTERS.priority === 'p1'; break;
+      case 'bug-p2':    active = FILTERS.kindType === 'bug'  && FILTERS.priority === 'p2'; break;
+      case 'audit-v2':  active = FILTERS.label === 'audit-v2'; break;
+      case 'epic':      active = FILTERS.label === 'epic'    && !FILTERS.kindType; break;
+      case 'assigned':  active = !!FILTERS.assigneeAny;  break;
+      case 'unassigned':active = !!FILTERS.assigneeNone; break;
+      case 'wip':       active = !!FILTERS.wipOnly;      break;
+    }
+    t.classList.toggle('active', active);
+  });
+}
+
 function bindFilters () {
   document.getElementById('filterType').addEventListener('click', e => {
     const b = e.target.closest('button.pill'); if (!b) return;
-    FILTERS.type = b.dataset.t; pillSelect('filterType', b);
+    // Pill click overrides any tile-derived kind/label filter. Without
+    // this clear, clicking "🐞 Bug" while the "Task · P1" detail tile
+    // is active produced an impossible bug∧task∧p1 AND-combo (0 results).
+    FILTERS.type = b.dataset.t;
+    FILTERS.kindType = null;
+    if (FILTERS.label && (FILTERS.label === 'epic' || FILTERS.label === 'audit-v2')) {
+      FILTERS.label = null;
+    }
     PAGE.idx = 0; render();
   });
   document.getElementById('filterPriority').addEventListener('click', e => {
     const b = e.target.closest('button.pill'); if (!b) return;
-    FILTERS.priority = b.dataset.p; pillSelect('filterPriority', b);
+    // Same override logic: pill takes precedence over tile.
+    FILTERS.priority = b.dataset.p;
+    FILTERS.kindType = null;
+    if (FILTERS.label && (FILTERS.label === 'epic' || FILTERS.label === 'audit-v2')) {
+      FILTERS.label = null;
+    }
     PAGE.idx = 0; render();
   });
   document.getElementById('filterStatus').addEventListener('click', e => {
@@ -1197,16 +1284,20 @@ function bindFilters () {
     FILTERS.search = e.target.value; PAGE.idx = 0; render();
   });
   document.getElementById('resetBtn').addEventListener('click', () => {
+    // Hard reset: every FILTERS dim + sort + proof state goes back to
+    // defaults. syncPillsToFilters() inside render() re-highlights every
+    // pill + tile so the UI matches.
     Object.assign(FILTERS, { module: null, submodule: null, label: null,
                              kindType: null, type: 'all', priority: 'all',
                              status: 'open', age: 'all', search: '',
-                             assignedToMe: false });
+                             assignedToMe: false,
+                             assigneeAny: false, assigneeNone: false,
+                             wipOnly: false, proof: null, surface: 'all' });
     document.getElementById('search').value = '';
     const atm = document.getElementById('assignedToMe'); if (atm) atm.checked = false;
-    document.querySelectorAll('.pill-group').forEach(g => {
-      const first = g.querySelector('.pill'); pillSelect(g.id, first);
-    });
-    PAGE.idx = 0; render();
+    PAGE.idx = 0;
+    PAGE.sort = { key: 'number', dir: 'desc' };
+    render();
   });
   document.querySelectorAll('#issueTable th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
@@ -2613,11 +2704,47 @@ function renderChartSurface (filtered) {
   });
 }
 
+function renderChartType (filtered) {
+  // Donut split of Issues (bug) vs Tasks vs Features vs Chores vs Docs
+  // among OPEN non-PR records. Click handler narrows the dashboard to the
+  // clicked slice (same effect as clicking the matching KPI tile).
+  const open = filtered.filter(i => i.state === 'open' && !i.is_pr);
+  const c = { bug: 0, task: 0, feat: 0, chore: 0, docs: 0, untyped: 0 };
+  for (const i of open) {
+    if (i.kind_type) c[i.kind_type]++; else c.untyped++;
+  }
+  const labels = ['🐞 Issues', '📝 Tasks', '✨ Features', '🧹 Chores', '📚 Docs', '∅ Untyped'];
+  const data   = [c.bug, c.task, c.feat, c.chore, c.docs, c.untyped];
+  const colors = [COLOR.loss, COLOR.blue, COLOR.accent, COLOR.dim, COLOR.brand, '#444'];
+  chartDestroy('chartType');
+  const ctx = document.getElementById('chartType');
+  if (!ctx) return;
+  CHARTS.chartType = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: COLOR.bg, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } },
+      },
+      onClick: (_evt, els) => {
+        if (!els.length) return;
+        const map = ['bug', 'task', 'feat', 'chore', 'docs', null];
+        const kt  = map[els[0].index];
+        FILTERS.kindType = (FILTERS.kindType === kt) ? null : kt;
+        PAGE.idx = 0; render();
+      },
+    },
+  });
+}
+
 function renderTypeTiles (filtered) {
   const open = filtered.filter(i => i.state === 'open');
-  const c = { bug: 0, feat: 0, chore: 0, docs: 0 };
+  const c = { bug: 0, task: 0, feat: 0, chore: 0, docs: 0 };
   for (const i of open) if (i.kind_type) c[i.kind_type]++;
   document.getElementById('kpiBug').textContent   = c.bug;
+  document.getElementById('kpiTask').textContent  = c.task;
   document.getElementById('kpiFeat').textContent  = c.feat;
   document.getElementById('kpiChore').textContent = c.chore;
   document.getElementById('kpiDocs').textContent  = c.docs;
@@ -2632,6 +2759,138 @@ function bindTypeTiles () {
     t.addEventListener('click', () => {
       const kt = t.dataset.kt;
       FILTERS.kindType = (FILTERS.kindType === kt) ? null : kt;
+      PAGE.idx = 0;
+      render();
+    });
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Detail tiles (12 in 3 rows):
+     row A — Tasks by priority (P0/P1/P2) + Epic count among tasks
+     row B — Issues (bugs) by priority + audit-v2 cohort
+     row C — Age stats (oldest / avg / stale >30d) + Epics total
+   Each tile is click-to-filter. Click again to clear.
+   The active pill state of the Type/Priority bars doesn't auto-sync
+   (same UX pattern as bindTypeTiles), but the filter banner + table
+   row count both reflect the new filter, so functional intent is clear.
+   ────────────────────────────────────────────────────────────── */
+function renderDetailTiles (filtered) {
+  const open = filtered.filter(i => i.state === 'open' && !i.is_pr);
+  const c = {
+    taskP0: 0, taskP1: 0, taskP2: 0, taskEpic: 0,
+    bugP0:  0, bugP1:  0, bugP2:  0, auditV2:  0,
+    epics:  0,
+  };
+  let oldestAge = 0;
+  let ageSum = 0;
+  let stale = 0;
+  const now = Date.now();
+  for (const i of open) {
+    const labels = new Set((i.labels || []).map(l => l.toLowerCase()));
+    if (i.kind_type === 'task') {
+      if (i.priority === 'p0') c.taskP0++;
+      else if (i.priority === 'p1') c.taskP1++;
+      else if (i.priority === 'p2') c.taskP2++;
+      if (labels.has('epic')) c.taskEpic++;
+    } else if (i.kind_type === 'bug') {
+      if (i.priority === 'p0') c.bugP0++;
+      else if (i.priority === 'p1') c.bugP1++;
+      else if (i.priority === 'p2') c.bugP2++;
+    }
+    if (labels.has('audit-v2')) c.auditV2++;
+    if (labels.has('epic')) c.epics++;
+    if (i.age_days > oldestAge) oldestAge = i.age_days;
+    if (i.age_days >= 0) ageSum += i.age_days;
+    // updated_at-based staleness (no update in 30+ days)
+    if (i.updated_at) {
+      const d = Math.floor((now - new Date(i.updated_at).getTime()) / 86400000);
+      if (d > 30) stale++;
+    }
+  }
+  const avgAge = open.length ? Math.round(ageSum / open.length) : 0;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('kpiTaskP0',  c.taskP0);
+  set('kpiTaskP1',  c.taskP1);
+  set('kpiTaskP2',  c.taskP2);
+  set('kpiTaskEpic',c.taskEpic);
+  set('kpiBugP0',   c.bugP0);
+  set('kpiBugP1',   c.bugP1);
+  set('kpiBugP2',   c.bugP2);
+  set('kpiAuditV2', c.auditV2);
+  set('kpiOldestAge', oldestAge + 'd');
+  set('kpiAvgAge',  avgAge + 'd');
+  set('kpiStale',   stale);
+  set('kpiEpics',   c.epics);
+}
+
+function bindDetailTiles () {
+  document.querySelectorAll('.kpi.clickable[data-detail]').forEach(t => {
+    t.addEventListener('click', () => {
+      const d = t.dataset.detail;
+      // Multi-select with per-tile toggle: each tile owns one or two
+      // FILTERS dimensions. Clicking a different tile composes (e.g.
+      // Task·P1 + audit-v2 = audit-v2 tasks at P1). Clicking the SAME
+      // tile again clears ONLY that tile's dimensions, leaving other
+      // active tiles untouched. The DOM .active class (set by
+      // syncPillsToFilters from FILTERS state) is the canonical
+      // "is this tile currently on" signal.
+      const active = t.classList.contains('active');
+      switch (d) {
+        case 'task-p0':
+          if (active) { FILTERS.kindType = null;   FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'task'; FILTERS.priority = 'p0';  }
+          break;
+        case 'task-p1':
+          if (active) { FILTERS.kindType = null;   FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'task'; FILTERS.priority = 'p1';  }
+          break;
+        case 'task-p2':
+          if (active) { FILTERS.kindType = null;   FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'task'; FILTERS.priority = 'p2';  }
+          break;
+        case 'task-epic':
+          if (active) { FILTERS.kindType = null;   FILTERS.label = null;   }
+          else        { FILTERS.kindType = 'task'; FILTERS.label = 'epic'; }
+          break;
+        case 'bug-p0':
+          if (active) { FILTERS.kindType = null;  FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'bug'; FILTERS.priority = 'p0';  }
+          break;
+        case 'bug-p1':
+          if (active) { FILTERS.kindType = null;  FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'bug'; FILTERS.priority = 'p1';  }
+          break;
+        case 'bug-p2':
+          if (active) { FILTERS.kindType = null;  FILTERS.priority = 'all'; }
+          else        { FILTERS.kindType = 'bug'; FILTERS.priority = 'p2';  }
+          break;
+        case 'audit-v2':
+          FILTERS.label = active ? null : 'audit-v2';
+          break;
+        case 'epic':
+          FILTERS.label = active ? null : 'epic';
+          break;
+        case 'assigned':
+          FILTERS.assigneeAny = !active;
+          if (FILTERS.assigneeAny) FILTERS.assigneeNone = false;
+          break;
+        case 'unassigned':
+          FILTERS.assigneeNone = !active;
+          if (FILTERS.assigneeNone) FILTERS.assigneeAny = false;
+          break;
+        case 'wip':
+          FILTERS.wipOnly = !active;
+          break;
+        case 'stale':
+        case 'oldest':
+          // View-ordering hint; doesn't toggle a FILTERS dimension.
+          PAGE.sort = { key: 'age_days', dir: 'desc' };
+          break;
+        case 'avg-age':
+          // Pure stat tile; tooltip already shows the value.
+          return;
+      }
       PAGE.idx = 0;
       render();
     });
@@ -2742,6 +3001,7 @@ function bindAssignedToMe () {
   bindBoardSurface();
   bindAssignedToMe();
   bindTypeTiles();
+  bindDetailTiles();
   bindProofTiles();
   bindReportsRefresh();
   bindNewIssueForm();
