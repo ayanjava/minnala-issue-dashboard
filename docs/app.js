@@ -44,6 +44,9 @@ const FILTERS = {
   age:       'all',
   search:    '',
   assignedToMe: false,
+  assigneeAny:  false,    // detail tile: 🤝 Assigned (any assignee)
+  assigneeNone: false,    // detail tile: 🆓 Unassigned
+  wipOnly:      false,    // detail tile: ⏳ In progress (stage != 'todo')
   surface:   'all',
   // 5-proof filter: null=off, 'proved'=fully proved, 'partial'=some
   // proofs supplied but not all, 'needs'=at least one dim missing.
@@ -697,6 +700,9 @@ function applyFilters (issues, opts = {}) {
     if (FILTERS.type === 'bug'   && (i.is_pr || i.kind_type !== 'bug'))  return false;
     if (FILTERS.type === 'task'  && (i.is_pr || i.kind_type !== 'task')) return false;
     if (FILTERS.type === 'pr'    && !i.is_pr) return false;
+    if (FILTERS.assigneeAny  && (i.assignees || []).length === 0) return false;
+    if (FILTERS.assigneeNone && (i.assignees || []).length >  0)  return false;
+    if (FILTERS.wipOnly      && (!i.stage || i.stage === 'todo' || i.stage === 'done')) return false;
     if (FILTERS.priority !== 'all') {
       const p = i.priority || 'none';
       if (p !== FILTERS.priority) return false;
@@ -744,6 +750,9 @@ function renderFilterBanner () {
   if (FILTERS.age !== 'all')      chips.push('age:' + FILTERS.age);
   if (FILTERS.proof)              chips.push('proof:' + FILTERS.proof);
   if (FILTERS.search)             chips.push(`search:"${FILTERS.search}"`);
+  if (FILTERS.assigneeAny)        chips.push('🤝 assigned');
+  if (FILTERS.assigneeNone)       chips.push('🆓 unassigned');
+  if (FILTERS.wipOnly)            chips.push('⏳ in-progress');
   if (chips.length === 0) { banner.classList.add('hidden'); return; }
   banner.classList.remove('hidden');
   banner.innerHTML = '<span class="muted">Filters:</span>' +
@@ -784,6 +793,13 @@ function renderKPIs (filtered) {
   document.getElementById('kpiOpened7d').textContent   = activity.filter(i => within(i.created_at, 7)).length;
   document.getElementById('kpiClosed7d').textContent   = activity.filter(i => within(i.closed_at,  7)).length;
   document.getElementById('kpiMerged7d').textContent   = activity.filter(i => i.merged && within(i.merged_at, 7)).length;
+  // Workflow tiles: assigned / unassigned / in-progress. These fill the
+  // 4-col grid's previously-orphaned row 3 and surface "who is on what"
+  // alongside the priority + activity stats.
+  const openIssues = open.filter(i => !i.is_pr);
+  document.getElementById('kpiAssigned').textContent   = openIssues.filter(i => (i.assignees || []).length > 0).length;
+  document.getElementById('kpiUnassigned').textContent = openIssues.filter(i => (i.assignees || []).length === 0).length;
+  document.getElementById('kpiWip').textContent        = openIssues.filter(i => i.stage && i.stage !== 'todo').length;
 }
 
 /* ── Charts ───────────────────────────────────────────────────── */
@@ -1205,7 +1221,9 @@ function bindFilters () {
     Object.assign(FILTERS, { module: null, submodule: null, label: null,
                              kindType: null, type: 'all', priority: 'all',
                              status: 'open', age: 'all', search: '',
-                             assignedToMe: false });
+                             assignedToMe: false,
+                             assigneeAny: false, assigneeNone: false,
+                             wipOnly: false });
     document.getElementById('search').value = '';
     const atm = document.getElementById('assignedToMe'); if (atm) atm.checked = false;
     document.querySelectorAll('.pill-group').forEach(g => {
@@ -2763,6 +2781,20 @@ function bindDetailTiles () {
         case 'bug-p2':    applyAndCompare('bug',  'p2', null);    break;
         case 'audit-v2':  applyAndCompare(null,   'all', 'audit-v2'); break;
         case 'epic':      applyAndCompare(null,   'all', 'epic'); break;
+        case 'assigned':
+          // Toggle assignee-filter dimension. Backed by FILTERS.assignedToMe
+          // when a PAT is present; otherwise we just filter the table view
+          // for issues with any assignee.
+          FILTERS.assigneeAny = !FILTERS.assigneeAny;
+          if (FILTERS.assigneeAny) FILTERS.assigneeNone = false;
+          break;
+        case 'unassigned':
+          FILTERS.assigneeNone = !FILTERS.assigneeNone;
+          if (FILTERS.assigneeNone) FILTERS.assigneeAny = false;
+          break;
+        case 'wip':
+          FILTERS.wipOnly = !FILTERS.wipOnly;
+          break;
         case 'stale':
           // Stale tile sorts the table by updated_at asc to surface
           // oldest-updated; no FILTERS change since it's a view ordering hint.

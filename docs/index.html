@@ -171,6 +171,9 @@
         <div class="kpi" title="Opened in last 7 days (open + already-closed)"><div class="k-label icon-only">🆕</div>          <div class="k-val" id="kpiOpened7d">—</div></div>
         <div class="kpi" title="Closed in last 7 days"><div class="k-label icon-only">✅</div>           <div class="k-val" id="kpiClosed7d">—</div></div>
         <div class="kpi" title="Merged PRs in last 7 days"><div class="k-label icon-only">🔀</div>           <div class="k-val" id="kpiMerged7d">—</div></div>
+        <div class="kpi clickable" data-detail="assigned"   title="Open issues with at least one assignee"><div class="k-label">🤝 Assigned</div>   <div class="k-val" id="kpiAssigned">—</div></div>
+        <div class="kpi clickable" data-detail="unassigned" title="Open issues with no assignee"><div class="k-label">🆓 Unassigned</div> <div class="k-val" id="kpiUnassigned">—</div></div>
+        <div class="kpi clickable" data-detail="wip"        title="Open issues in progress / in review (label=in-progress|wip|doing|review|qa)"><div class="k-label">⏳ In progress</div> <div class="k-val" id="kpiWip">—</div></div>
       </section>
 
       <!-- Five-proof tiles. Every issue must declare a state for each
