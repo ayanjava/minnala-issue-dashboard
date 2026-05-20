@@ -1,0 +1,37 @@
+{
+  "name":             "Minnala Issue Dashboard",
+  "short_name":       "Minnala",
+  "description":      "Live issue + PR dashboard for ayanjava/0dte-v2. Install from your browser to use as a standalone app on phone or desktop.",
+  "start_url":        "./#/dashboard",
+  "scope":            "./",
+  "display":          "standalone",
+  "orientation":      "any",
+  "background_color": "#0a0e16",
+  "theme_color":      "#0a0e16",
+  "categories":       ["productivity", "developer", "utilities"],
+  "icons": [
+    {
+      "src":     "icon-192.png",
+      "type":    "image/png",
+      "sizes":   "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src":     "icon-512.png",
+      "type":    "image/png",
+      "sizes":   "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src":     "icon.svg",
+      "type":    "image/svg+xml",
+      "sizes":   "any",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Board",    "short_name": "Board",    "url": "./#/board",    "description": "Kanban board" },
+    { "name": "New issue","short_name": "New",      "url": "./#/new",      "description": "Create issue" },
+    { "name": "Activity", "short_name": "Activity", "url": "./#/activity", "description": "Recent events" }
+  ]
+}

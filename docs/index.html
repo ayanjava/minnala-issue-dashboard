@@ -4,8 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnala Issue Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=2026-05-18-task-split">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📊%3C/text%3E%3C/svg%3E">
+
+<!-- PWA: installable from modern browsers ("Add to Home Screen" on
+     phone, "Install app" on desktop). Manifest declares name/icons/
+     theme; sw.js caches the shell so the app opens offline (read-only). -->
+<link rel="manifest" href="manifest.json?v=2026-05-17">
+<meta name="theme-color" content="#0a0e16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Minnala">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<link rel="stylesheet" href="styles.css?v=2026-05-17-pwa">
 <!-- Chart.js v4 from jsDelivr (no SRI — pinned by exact version) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -501,6 +513,12 @@
           <div class="card-head">🛡️ SonarQube findings <span class="muted">(latest scan)</span></div>
           <div class="chart-wrap"><canvas id="rptSonarFindings"></canvas></div>
         </div>
+        <div class="card chart-card">
+          <div class="card-head">
+            🏎️ Velocity <span class="muted">(opened vs closed · last 12 weeks)</span>
+          </div>
+          <div class="chart-wrap"><canvas id="rptVelocity"></canvas></div>
+        </div>
       </section>
 
       <!-- Sonar ratings card — colour-coded A-E badges for each axis -->
@@ -673,6 +691,16 @@
   </div>
 </div>
 
-<script src="app.js?v=2026-05-18-task-split"></script>
+<script src="app.js?v=2026-05-17-pwa"></script>
+<!-- Register the service worker on the first idle tick after main JS.
+     Failure (e.g. unsupported browser, HTTPS missing on file://) is
+     silent — PWA install is progressive enhancement. -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* PWA disabled — harmless */ });
+  });
+}
+</script>
 </body>
 </html>

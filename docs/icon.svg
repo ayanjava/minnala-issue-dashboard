@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background — Minnala cockpit dark cyan, matches PWA theme_color -->
+  <rect width="512" height="512" rx="96" fill="#0a0e16"/>
+  <!-- Donut ring — mint/blue/amber wedges echo the dashboard's "By module" chart -->
+  <g transform="translate(256 256)">
+    <circle r="170" fill="none" stroke="#1a2230" stroke-width="48"/>
+    <!-- mint wedge: 0 → 130deg -->
+    <circle r="170" fill="none" stroke="oklch(0.78 0.20 145)" stroke-width="48"
+            stroke-dasharray="385 1068" stroke-dashoffset="0" transform="rotate(-90)"/>
+    <!-- blue wedge: 130 → 230deg -->
+    <circle r="170" fill="none" stroke="oklch(0.72 0.14 240)" stroke-width="48"
+            stroke-dasharray="296 1068" stroke-dashoffset="-385" transform="rotate(-90)"/>
+    <!-- amber wedge: 230 → 320deg -->
+    <circle r="170" fill="none" stroke="oklch(0.78 0.18 70)" stroke-width="48"
+            stroke-dasharray="266 1068" stroke-dashoffset="-681" transform="rotate(-90)"/>
+    <!-- red wedge (P0): 320 → 360deg -->
+    <circle r="170" fill="none" stroke="oklch(0.68 0.20 22)" stroke-width="48"
+            stroke-dasharray="118 1068" stroke-dashoffset="-947" transform="rotate(-90)"/>
+    <!-- Center: 99 (the open-issue count, lives long) — JetBrains Mono-ish -->
+    <text x="0" y="0" text-anchor="middle" dominant-baseline="central"
+          font-family="ui-monospace, 'JetBrains Mono', monospace"
+          font-weight="700" font-size="115" fill="#e7eef7">99</text>
+  </g>
+</svg>

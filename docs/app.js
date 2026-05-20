@@ -2146,6 +2146,67 @@ function renderReportsCharts ({ reports }) {
   } else {
     chartEmpty('rptSonarFindings', 'No sonar-summary.json data yet — export `/api/measures/component?metricKeys=…` and dump to reports/sonar-summary.json.');
   }
+
+  // 🏎️ Velocity — weekly opened vs closed over the last 12 weeks.
+  // Computed directly from STATE.issues (no extra API call), so this
+  // chart is always live regardless of whether reports/*.json exists.
+  // Answers the universal solo-dev question: 'am I keeping up?'
+  const canvas = document.getElementById('rptVelocity');
+  if (canvas) {
+    const WEEKS = 12;
+    const today = new Date(); today.setUTCHours(23, 59, 59, 999);
+    const monday = new Date(today);
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    const weeks = [];
+    for (let i = WEEKS - 1; i >= 0; i--) {
+      const start = new Date(monday); start.setUTCDate(start.getUTCDate() - i * 7);
+      const end   = new Date(start);  end.setUTCDate(end.getUTCDate() + 6);
+      end.setUTCHours(23, 59, 59, 999);
+      weeks.push({ start, end, opened: 0, closed: 0, merged: 0 });
+    }
+    for (const issue of (STATE.issues || [])) {
+      const cAt = issue.created_at ? new Date(issue.created_at).getTime() : NaN;
+      const xAt = issue.closed_at  ? new Date(issue.closed_at).getTime()  : NaN;
+      const mAt = issue.merged_at  ? new Date(issue.merged_at).getTime()  : NaN;
+      for (const w of weeks) {
+        const ws = w.start.getTime(), we = w.end.getTime();
+        if (!Number.isNaN(cAt) && cAt >= ws && cAt <= we) w.opened++;
+        if (!Number.isNaN(xAt) && xAt >= ws && xAt <= we) w.closed++;
+        if (!Number.isNaN(mAt) && mAt >= ws && mAt <= we) w.merged++;
+      }
+    }
+    const labels = weeks.map(w => w.start.toISOString().slice(5, 10));
+    chartDestroy('rptVelocity');
+    CHARTS.rptVelocity = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Opened', data: weeks.map(w => w.opened), backgroundColor: COLOR.blue },
+          { label: 'Closed', data: weeks.map(w => w.closed), backgroundColor: COLOR.accent },
+          { label: 'Merged (PR)', data: weeks.map(w => w.merged), backgroundColor: COLOR.purple },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: COLOR.text, font: { family: 'Inter' } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: COLOR.text, font: { family: 'Inter' } }, grid: { color: COLOR.grid } },
+        },
+        plugins: {
+          legend: { position: 'bottom', labels: { color: COLOR.text, font: { family: 'Inter', size: 11 } } },
+          tooltip: { callbacks: {
+            title: (items) => 'Week of ' + items[0].label,
+            footer: (items) => {
+              const w = weeks[items[0].dataIndex];
+              const net = w.closed + w.merged - w.opened;
+              return `Net Δ: ${net >= 0 ? '+' : ''}${net} ${net >= 0 ? '(catching up)' : '(falling behind)'}`;
+            },
+          } },
+        },
+      },
+    });
+  }
 }
 
 function renderReportsSonarRatings ({ reports }) {
