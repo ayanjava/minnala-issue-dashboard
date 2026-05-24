@@ -26,7 +26,7 @@
           "id": "admin-pages",
           "label": "Admin pages",
           "rules": [
-            {"label_any": ["ui-v2-admin-users", "ui-v2-admin-infra", "ui-v2-admin-strategy", "ui-v2-admin-symbols", "ui-v2-admin-docs", "ui-v2-admin-journal", "ui-v2-admin-events", "ui-v2-admin-webhooks", "ui-v2-admin-test-results"]}
+            {"label_any": ["ui-v2-admin-users", "ui-v2-admin-infra", "ui-v2-admin-strategy", "ui-v2-admin-symbols", "ui-v2-admin-docs", "ui-v2-admin-journal", "ui-v2-admin-events", "ui-v2-admin-webhooks", "ui-v2-admin-test-results", "ui-v2-admin-llm"]}
           ]
         },
         {
